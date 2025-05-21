@@ -1,9 +1,20 @@
 import tkinter as tk
 from tkinter import ttk
+from tkcalendar import DateEntry
 
 root = tk.Tk()
 root.title("Калькулятор расчета стоимости по ТП")
-root.geometry("950x700")
+root.geometry("950x900")
+
+tk.Label(
+    root,
+    text="Калькулятор расчета стоимости по ТП",
+    font=("Arial", 16, "bold"),
+    bg="#d8f3dc",
+    padx=10,
+    pady=10,
+    anchor='center'
+).pack(fill='x')
 
 # --- Создаем контейнер для canvas и вертикального скроллбара ---
 container = tk.Frame(root)
@@ -15,37 +26,26 @@ canvas.pack(side='left', fill='both', expand=True)
 v_scrollbar = tk.Scrollbar(container, orient='vertical', command=canvas.yview)
 v_scrollbar.pack(side='right', fill='y')
 
-# Горизонтальный скроллбар внизу окна
 h_scrollbar = tk.Scrollbar(root, orient='horizontal', command=canvas.xview)
 h_scrollbar.pack(side='bottom', fill='x')
 
 canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
-# Создаем frame, в котором будет весь интерфейс
 main_frame = tk.Frame(canvas)
 canvas.create_window((0, 0), window=main_frame, anchor='nw')
 
-# Обновляем scrollregion при изменении размера main_frame
 def on_frame_configure(event):
     canvas.configure(scrollregion=canvas.bbox("all"))
 
 main_frame.bind("<Configure>", on_frame_configure)
 
-# --- Здесь начинается твой исходный интерфейс, только теперь в main_frame ---
+def _on_mousewheel(event):
+    canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-# Заголовок
-tk.Label(
-    main_frame,
-    text="Калькулятор расчета стоимости по ТП",
-    font=("Arial", 16, "bold"),
-    bg="#d8f3dc",
-    padx=10,
-    pady=10,
-    anchor='center'
-).pack(fill='x')
+canvas.bind_all("<MouseWheel>", _on_mousewheel)
+canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
-
-# Используем отдельный фрейм для содержимого под заголовком
 content_frame = tk.Frame(main_frame, padx=10, pady=10)
 content_frame.pack(fill='both', expand=True)
 
@@ -67,10 +67,21 @@ def create_cell(parent, widget_class, row, column, **kwargs):
 # Верхние поля
 for i, (label_text, var) in enumerate(top_fields):
     create_cell(content_frame, tk.Label, i, 0, text=label_text, font=("Arial", 12), anchor='w')
-    entry = create_cell(content_frame, tk.Entry, i, 1, textvariable=var, font=("Arial", 12), width=30)
+
+    if label_text == "Дата заявки ТП:":
+        entry = create_cell(
+            content_frame, DateEntry, i, 1,
+            textvariable=var,
+            font=("Arial", 12),
+            width=28,
+            date_pattern='dd.mm.yyyy',
+            locale='ru_RU'
+        )
+    else:
+        entry = create_cell(content_frame, tk.Entry, i, 1, textvariable=var, font=("Arial", 12), width=30)
+
     top_field_vars[i] = var
 
-# Заголовок таблицы с расчетом стоимости
 tk.Label(content_frame, text="Информация для расчета стоимости по ТП", font=("Arial", 14, "bold")).grid(
     row=3, column=0, columnspan=2, sticky='s', pady=10
 )
@@ -146,57 +157,51 @@ for i, config in field_config.items():
         entry = create_cell(content_frame, tk.Entry, row, 1, font=("Arial", 12), width=30, textvariable=var, state='readonly')
         field_vars[i] = var
 
-# --- Таблица: С3 Кабельные линии электропередачи ---
+# Добавляем таблицу для расчета стоимости по КЛ
+kl_label = tk.Label(content_frame, text="Расчет стоимости по КЛ", font=("Arial", 14, "bold"))
+kl_label.grid(row=15, column=0, columnspan=2, pady=20)
 
-table_title = tk.Label(
-    content_frame,
-    text="С3 Кабельные линии электропередачи",
-    font=("Arial", 14, "bold")
-)
-table_title.grid(row=100, column=0, columnspan=8, pady=(20, 10), sticky='nsew')
+kl_frame = tk.Frame(content_frame)
+kl_frame.grid(row=16, column=0, columnspan=2, sticky='nsew')
 
-columns = [
-    "№ п/п", "Напряжение, кВ", "Сечение, мм²", "Изоляция", "Количество КЛ в траншее/блоках/каналах",
-    "Наименование мероприятия", "Стоимость ставки, руб./км",
-    "Длина, км", "Стоимость без НДС, руб", "Стоимость с НДС, руб"
+kl_headers = [
+    "№ п/п", "Напряжение, кВ", "Сечение, мм²", "Изоляция",
+    "Кол-во КЛ в тр-не/блоках/каналах", "Наименование мероприятия",
+    "Ставка, руб/км", "Длина, км", "Стоимость без НДС, руб", "Стоимость с НДС, руб"
 ]
 
-for col, name in enumerate(columns):
-    header = tk.Label(content_frame, text=name, font=("Arial", 10, "bold"),
-                      borderwidth=1, relief="solid")
-    header.grid(row=101, column=col, sticky='nsew', padx=1, pady=1)
+for col, header in enumerate(kl_headers):
+    tk.Label(kl_frame, text=header, font=("Arial", 10, "bold"), borderwidth=1, relief="solid", padx=5, pady=2).grid(row=0, column=col, sticky='nsew')
 
-table_rows = []
+kl_entry_vars = []
 
-def add_table_row():
-    row_index = 102 + len(table_rows)
-    row_widgets = []
+for row in range(1, 6):
+    row_vars = []
+    for col in range(len(kl_headers)):
+        if col == 0:
+            tk.Label(kl_frame, text=str(row), borderwidth=1, relief="solid", width=5).grid(row=row, column=col, sticky='nsew')
+        else:
+            var = tk.StringVar()
+            entry = tk.Entry(kl_frame, textvariable=var, width=18, borderwidth=1, relief="solid")
+            entry.grid(row=row, column=col, sticky='nsew')
+            row_vars.append(var)
+    kl_entry_vars.append(row_vars)
 
-    for col in range(len(columns)):
-        entry = tk.Entry(content_frame, font=("Arial", 10),
-                         relief="solid", borderwidth=1)
-        entry.grid(row=row_index, column=col, sticky='nsew', padx=1, pady=1)
-        row_widgets.append(entry)
-
-    table_rows.append(row_widgets)
-    draw_totals()
-
-def draw_totals():
-    total_row = 102 + len(table_rows)
-    tk.Label(content_frame, text="ИТОГО", font=("Arial", 10, "bold"),
-             borderwidth=1, relief="solid").grid(row=total_row, column=0, columnspan=5, sticky='nsew', padx=1, pady=1)
-
-    for col in range(5, 8):
-        entry = tk.Entry(content_frame, font=("Arial", 10, "bold"),
-                         relief="solid", borderwidth=1)
-        entry.insert(0, "0,00")
-        entry.grid(row=total_row, column=col, sticky='nsew', padx=1, pady=1)
-
-add_row_button = tk.Button(content_frame, text="+", font=("Arial", 12, "bold"),
-                           command=add_table_row)
-add_row_button.grid(row=105, column=0, pady=(10, 0), sticky='w')
-
-for _ in range(2):
-    add_table_row()
+for col in range(len(kl_headers)):
+    if col == 0:
+        tk.Label(kl_frame, text="", borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    elif col == 5:
+        tk.Label(kl_frame, text="ИТОГО", font=("Arial", 10, "bold"), borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    elif col == 7:
+        length_total = tk.StringVar(value="0.000")
+        tk.Entry(kl_frame, textvariable=length_total, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    elif col == 8:
+        sum_wo_vat = tk.StringVar(value="0.00")
+        tk.Entry(kl_frame, textvariable=sum_wo_vat, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    elif col == 9:
+        sum_with_vat = tk.StringVar(value="0.00")
+        tk.Entry(kl_frame, textvariable=sum_with_vat, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    else:
+        tk.Label(kl_frame, text="", borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
 
 root.mainloop()
