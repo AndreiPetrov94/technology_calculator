@@ -20,13 +20,29 @@ main_frame = tk.Frame(root, padx=10, pady=10)
 main_frame.pack(fill='both', expand=True)
 
 # Ввод названия заявки и ТП
-tk.Label(main_frame, text="Наименование заявки:", font=("Arial", 12)).grid(row=0, column=0, sticky='w')
-tk.Entry(main_frame, width=30, font=("Arial", 12)).grid(row=0, column=1, pady=5, sticky='w')
+# tk.Label(main_frame, text="Наименование заявки:", font=("Arial", 12)).grid(row=0, column=0, sticky='w')
+# tk.Entry(main_frame, width=30, font=("Arial", 12)).grid(row=0, column=1, pady=5, sticky='w')
 
-tk.Label(main_frame, text="Заявка ТП:", font=("Arial", 12)).grid(row=1, column=0, sticky='w')
-tk.Entry(main_frame, width=30, font=("Arial", 12)).grid(row=1, column=1, pady=5, sticky='w')
+# tk.Label(main_frame, text="Заявка ТП:", font=("Arial", 12)).grid(row=1, column=0, sticky='w')
+# tk.Entry(main_frame, width=30, font=("Arial", 12)).grid(row=1, column=1, pady=5, sticky='w')
 
-tk.Label(main_frame, text="Информация для расчета стоимости по ТП", font=("Arial", 12)).grid(row=2, column=0, sticky='w', pady=10)
+
+top_fields = [
+    ("Наименование заявителя:", tk.StringVar()),
+    ("Номер заявки ТП:", tk.StringVar()),
+    ("Дата заявки ТП:", tk.StringVar())
+]
+
+# Хранилище переменных для верхних полей
+top_field_vars = {}
+
+# Создание меток и полей ввода в цикле
+for i, (label_text, var) in enumerate(top_fields):
+    tk.Label(main_frame, text=label_text, font=("Arial", 12)).grid(row=i, column=0, sticky='w')
+    tk.Entry(main_frame, textvariable=var, width=30, font=("Arial", 12)).grid(row=i, column=1, pady=5, sticky='w')
+    top_field_vars[i] = var
+
+tk.Label(main_frame, text="Информация для расчета стоимости по ТП", font=("Arial", 14)).grid(row=3, column=0, columnspan=2, sticky='s', pady=10)
 
 # Описание полей
 field_config = {
@@ -89,24 +105,54 @@ power_new.trace_add("write", update_calculations)
 
 # Создание полей на форме
 for i, config in field_config.items():
-    tk.Label(main_frame, text=f"{i+1}. {config['label']}", font=("Arial", 12), anchor='w', width=70).grid(row=i+3, column=0, sticky='w', pady=5)
+    tk.Label(
+        main_frame,
+        text=f"{i+1}. {config['label']}",
+        font=("Arial", 12),
+        anchor='w',
+        width=70
+        ).grid(
+            row=i+4,
+            column=0,
+            sticky='w',
+            pady=5
+        )
 
     if config["type"] == "combobox":
         var = tk.StringVar()
-        cb = ttk.Combobox(main_frame, font=("Arial", 12), width=30, values=config["values"], textvariable=var)
-        cb.grid(row=i+3, column=1, sticky='w')
+        cb = ttk.Combobox(
+            main_frame,
+            font=("Arial", 12),
+            width=30,
+            values=config["values"],
+            textvariable=var
+        )
+        cb.grid(row=i+4, column=1, sticky='w')
         field_vars[i] = var
 
     elif config["type"] == "float_entry":
         var = power_prev if i == 2 else power_new
-        entry = tk.Entry(main_frame, font=("Arial", 12), width=30, textvariable=var, validate="key", validatecommand=vcmd)
-        entry.grid(row=i+3, column=1, sticky='w')
+        entry = tk.Entry(
+            main_frame,
+            font=("Arial", 12),
+            width=30,
+            textvariable=var,
+            validate="key",
+            validatecommand=vcmd
+        )
+        entry.grid(row=i+4, column=1, sticky='w')
         field_vars[i] = var
 
     elif config["type"] == "readonly":
         var = power_total if i == 4 else category_result
-        entry = tk.Entry(main_frame, font=("Arial", 12), width=30, textvariable=var, state='readonly')
-        entry.grid(row=i+3, column=1, sticky='w')
+        entry = tk.Entry(
+            main_frame,
+            font=("Arial", 12),
+            width=30,
+            textvariable=var,
+            state='readonly'
+        )
+        entry.grid(row=i+4, column=1, sticky='w')
         field_vars[i] = var
 
 root.mainloop()
