@@ -4,7 +4,7 @@ from tkcalendar import DateEntry
 
 root = tk.Tk()
 root.title("Калькулятор расчета стоимости по ТП")
-root.geometry("950x900")
+root.geometry("1450x900")
 
 tk.Label(
     root,
@@ -158,25 +158,66 @@ for i, config in field_config.items():
         field_vars[i] = var
 
 # Добавляем таблицу для расчета стоимости по КЛ
-kl_label = tk.Label(content_frame, text="Расчет стоимости по КЛ", font=("Arial", 14, "bold"))
+kl_label = tk.Label(content_frame, text="С3 Кабельные линии электропередачи", font=("Arial", 14, "bold"))
 kl_label.grid(row=15, column=0, columnspan=2, pady=20)
 
+# Рамка для таблицы
 kl_frame = tk.Frame(content_frame)
 kl_frame.grid(row=16, column=0, columnspan=2, sticky='nsew')
 
 kl_headers = [
-    "№ п/п", "Напряжение, кВ", "Сечение, мм²", "Изоляция",
-    "Кол-во КЛ в тр-не/блоках/каналах", "Наименование мероприятия",
-    "Ставка, руб/км", "Длина, км", "Стоимость без НДС, руб", "Стоимость с НДС, руб"
+    "№ п/п",
+    "Напряжение, кВ",
+    "Сечение, мм²",
+    "Изоляция",
+    "Кол-во КЛ\nв тр-не/блоках/каналах",
+    "Наименование мероприятия",
+    "Ставка, руб/км",
+    "Длина, км",
+    "Стоимость без НДС, руб",
+    "Стоимость с НДС, руб"
 ]
 
 for col, header in enumerate(kl_headers):
-    tk.Label(kl_frame, text=header, font=("Arial", 10, "bold"), borderwidth=1, relief="solid", padx=5, pady=2).grid(row=0, column=col, sticky='nsew')
+    tk.Label(kl_frame, text=header, font=("Arial", 10, "bold"), borderwidth=1, relief="solid", padx=5, pady=2, justify='center').grid(row=0, column=col, sticky='nsew')
 
 kl_entry_vars = []
+kl_total_widgets = []
+next_kl_row = 1
 
-for row in range(1, 6):
+length_total = tk.StringVar(value="0.000")
+sum_wo_vat = tk.StringVar(value="0.00")
+sum_with_vat = tk.StringVar(value="0.00")
+
+def draw_kl_totals():
+    global kl_total_widgets
+    for widget in kl_total_widgets:
+        widget.destroy()
+    kl_total_widgets.clear()
+
+    total_row = next_kl_row
+    for col in range(len(kl_headers)):
+        if col == 0:
+            w = tk.Label(kl_frame, text="", borderwidth=1, relief="solid")
+        elif col == 5:
+            w = tk.Label(kl_frame, text="ИТОГО", font=("Arial", 10, "bold"), borderwidth=1, relief="solid")
+        elif col == 7:
+            w = tk.Entry(kl_frame, textvariable=length_total, state='readonly', borderwidth=1, relief="solid")
+        elif col == 8:
+            w = tk.Entry(kl_frame, textvariable=sum_wo_vat, state='readonly', borderwidth=1, relief="solid")
+        elif col == 9:
+            w = tk.Entry(kl_frame, textvariable=sum_with_vat, state='readonly', borderwidth=1, relief="solid")
+        else:
+            w = tk.Label(kl_frame, text="", borderwidth=1, relief="solid")
+        w.grid(row=total_row, column=col, sticky='nsew')
+        kl_total_widgets.append(w)
+
+def add_kl_row():
+    global next_kl_row
+    draw_kl_totals()
+    row = next_kl_row
     row_vars = []
+
     for col in range(len(kl_headers)):
         if col == 0:
             tk.Label(kl_frame, text=str(row), borderwidth=1, relief="solid", width=5).grid(row=row, column=col, sticky='nsew')
@@ -185,23 +226,33 @@ for row in range(1, 6):
             entry = tk.Entry(kl_frame, textvariable=var, width=18, borderwidth=1, relief="solid")
             entry.grid(row=row, column=col, sticky='nsew')
             row_vars.append(var)
-    kl_entry_vars.append(row_vars)
 
-for col in range(len(kl_headers)):
-    if col == 0:
-        tk.Label(kl_frame, text="", borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
-    elif col == 5:
-        tk.Label(kl_frame, text="ИТОГО", font=("Arial", 10, "bold"), borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
-    elif col == 7:
-        length_total = tk.StringVar(value="0.000")
-        tk.Entry(kl_frame, textvariable=length_total, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
-    elif col == 8:
-        sum_wo_vat = tk.StringVar(value="0.00")
-        tk.Entry(kl_frame, textvariable=sum_wo_vat, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
-    elif col == 9:
-        sum_with_vat = tk.StringVar(value="0.00")
-        tk.Entry(kl_frame, textvariable=sum_with_vat, state='readonly', borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
-    else:
-        tk.Label(kl_frame, text="", borderwidth=1, relief="solid").grid(row=6, column=col, sticky='nsew')
+    kl_entry_vars.append(row_vars)
+    next_kl_row += 1
+    draw_kl_totals()
+
+def remove_kl_row():
+    global next_kl_row
+    if next_kl_row > 2:  # минимум 2 строки
+        next_kl_row -= 1
+        row_widgets = kl_frame.grid_slaves(row=next_kl_row)
+        for widget in row_widgets:
+            widget.destroy()
+        kl_entry_vars.pop()
+        draw_kl_totals()
+
+# Добавим 2 строки по умолчанию
+for _ in range(2):
+    add_kl_row()
+
+# Кнопки "добавить" и "удалить"
+buttons_frame = tk.Frame(content_frame)
+buttons_frame.grid(row=17, column=0, columnspan=2, sticky='w', pady=10)
+
+add_btn = tk.Button(buttons_frame, text="Добавить кабельную линию", font=("Arial", 12, "bold"), command=add_kl_row, bg="#b7e4c7", width=30)
+add_btn.pack(side='left', padx=(0, 10))
+
+remove_btn = tk.Button(buttons_frame, text="Удалить кабельную линию", font=("Arial", 12, "bold"), command=remove_kl_row, bg="#f8d7da", width=30)
+remove_btn.pack(side='left')
 
 root.mainloop()

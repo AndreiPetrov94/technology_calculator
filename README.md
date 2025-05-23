@@ -33,21 +33,6 @@ source venv/Scripts/activate
 ```
 pip install -r requirements.txt
 ```
-* В корневой папке создать файл .env:
-```
-touch .env
-```
-* В файле .env добавить переменные из файла .env.example
-* Запустить проект:
-
-Команда для Linux и macOS:
-```
-python3 manage.py runserver
-```
-Команда для Windows:
-```
-python manage.py runserver
-```
 
 ## Автор
 * [Андрей Петров](https://github.com/AndreiPetrov94)
