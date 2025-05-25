@@ -43,10 +43,19 @@ content_frame.pack(fill='both', expand=True)
 
 # Универсальная функция для создания ячеек с рамкой
 def create_cell(parent, widget_class, row, column, **kwargs):
+    """
+    Универсальная функция для создания ячейки с виджетом.
+    Автоматически отключает прокрутку колесиком мыши у Combobox.
+    """
     frame = tk.Frame(parent, highlightbackground="black", highlightthickness=1)
     frame.grid(row=row, column=column, sticky='nsew', padx=4, pady=4)
     widget = widget_class(frame, **kwargs)
     widget.pack(fill='both', expand=True)
+
+    # Отключаем прокрутку у Combobox (чтобы не переключались случайно)
+    if isinstance(widget, ttk.Combobox):
+        widget.bind("<MouseWheel>", lambda e: "break")
+
     return widget
 
 
@@ -211,7 +220,20 @@ C2_frame.grid(row=17, column=0, columnspan=2, sticky='nsew')
 
 # Создаем заголовки таблицы
 for col, header in enumerate(C2_headers):
-    tk.Label(C2_frame, text=header, font=("Arial", 10, "bold"), borderwidth=1, relief="solid", padx=5, pady=2, justify='center').grid(row=0, column=col, sticky='nsew')
+    tk.Label(
+        C2_frame,
+        text=header,
+        font=("Arial", 10, "bold"),
+        borderwidth=1,
+        relief="solid",
+        padx=5,
+        pady=2,
+        justify='center'
+    ).grid(
+        row=0,
+        column=col,
+        sticky='nsew'
+    )
 
 vl_entry_vars = []  # список словарей с переменными строк
 vl_total_widgets = []  # виджеты итоговой строки
@@ -241,7 +263,7 @@ def update_vl_totals():
         total_cost_wo_vat += cost_wo_vat
         total_cost_with_vat += cost_with_vat
 
-    length_total_vl.set(to_str(total_length, precision=3))
+    length_total_vl.set(to_str(total_length, precision=2))
     sum_wo_vat_vl.set(to_str(total_cost_wo_vat, precision=2, grouping=True))
     sum_with_vat_vl.set(to_str(total_cost_with_vat, precision=2, grouping=True))
 
@@ -263,12 +285,12 @@ def draw_vl_totals():
             w = tk.Label(C2_frame, text="", borderwidth=1, relief="solid")
         elif col == 3:  # В столбце "Наименование мероприятия" пишем "ИТОГО"
             w = tk.Label(C2_frame, text="ИТОГО", font=("Arial", 10, "bold"), borderwidth=1, relief="solid")
-        elif col == 5:  # Длина, км — поле только для чтения с итоговым значением
-            w = tk.Entry(C2_frame, textvariable=length_total_vl, state='readonly', borderwidth=1, relief="solid")
-        elif col == 6:  # Стоимость без НДС — поле только для чтения с итоговым значением
-            w = tk.Entry(C2_frame, textvariable=sum_wo_vat_vl, state='readonly', borderwidth=1, relief="solid")
-        elif col == 7:  # Стоимость с НДС — поле только для чтения с итоговым значением
-            w = tk.Entry(C2_frame, textvariable=sum_with_vat_vl, state='readonly', borderwidth=1, relief="solid")
+        elif col == 5:
+            w = tk.Entry(C2_frame, textvariable=length_total_vl, state='readonly', borderwidth=1, relief="solid", justify='center')
+        elif col == 6:
+            w = tk.Entry(C2_frame, textvariable=sum_wo_vat_vl, state='readonly', borderwidth=1, relief="solid", justify='center')
+        elif col == 7:
+            w = tk.Entry(C2_frame, textvariable=sum_with_vat_vl, state='readonly', borderwidth=1, relief="solid", justify='center')
         else:
             w = tk.Label(C2_frame, text="", borderwidth=1, relief="solid")
         w.grid(row=total_row, column=col, sticky='nsew')
@@ -315,7 +337,7 @@ def add_vl_row():
     event_menu.grid(row=row, column=3, sticky='nsew')
 
     # Ставка — Entry, только для чтения
-    rate_entry = tk.Entry(C2_frame, textvariable=row_vars["rate"], state='readonly', justify='right', borderwidth=1, relief="solid")
+    rate_entry = tk.Entry(C2_frame, textvariable=row_vars["rate"], state='readonly', justify='center', borderwidth=1, relief="solid")
     rate_entry.grid(row=row, column=4, sticky='nsew')
 
     # Длина — Entry, пользователь вводит
@@ -332,11 +354,11 @@ def add_vl_row():
     length_entry.grid(row=row, column=5, sticky='nsew')
 
     # Стоимость без НДС — Entry, только для чтения
-    cost_wo_vat_entry = tk.Entry(C2_frame, textvariable=row_vars["cost_wo_vat"], state='readonly', justify='right', borderwidth=1, relief="solid")
+    cost_wo_vat_entry = tk.Entry(C2_frame, textvariable=row_vars["cost_wo_vat"], state='readonly', justify='center', borderwidth=1, relief="solid")
     cost_wo_vat_entry.grid(row=row, column=6, sticky='nsew')
 
     # Стоимость с НДС — Entry, только для чтения
-    cost_with_vat_entry = tk.Entry(C2_frame, textvariable=row_vars["cost_with_vat"], state='readonly', justify='right', borderwidth=1, relief="solid")
+    cost_with_vat_entry = tk.Entry(C2_frame, textvariable=row_vars["cost_with_vat"], state='readonly', justify='center', borderwidth=1, relief="solid")
     cost_with_vat_entry.grid(row=row, column=7, sticky='nsew')
 
     def on_voltage_change(event=None):
@@ -444,7 +466,7 @@ def remove_vl_row():
 # Добавим две строки для примера
 add_vl_row()
 
-# Создадим кнопки для добавления и удаления строк (если нужно)
+# Создадим кнопки для добавления и удаления строк
 buttons_frame_vl = tk.Frame(content_frame)
 buttons_frame_vl.grid(row=18, column=0, columnspan=2, sticky='w', pady=10)
 
@@ -453,6 +475,8 @@ add_btn_vl.pack(side='left', padx=(0, 10))
 
 remove_btn_vl = tk.Button(buttons_frame_vl, text="Удалить воздушную линию", font=("Arial", 12, "bold"), command=remove_vl_row, bg="#f8d7da", width=30)
 remove_btn_vl.pack(side='left')
+
+
 
 
 root.mainloop()
