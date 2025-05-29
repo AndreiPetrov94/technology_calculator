@@ -3,13 +3,13 @@ from tkinter import ttk
 from tkcalendar import DateEntry
 
 from constants import SCREEN_SIZE
-from form_config import (
+from form_config_2 import (
     application_data,
     calculation_data,
     headers_dict,
     rates_dict
 )
-from scrollable_frame import ScrollableFrame
+from scrollable_frame2 import ScrollableFrame
 from validators import validate_float, to_float, to_str
 
 
@@ -39,6 +39,7 @@ main_frame = scrollable.main_frame
 # Контейнер с отступами для содержимого
 content_frame = tk.Frame(main_frame, padx=10, pady=10)
 content_frame.pack(fill='both', expand=True)
+content_frame.grid_columnconfigure(0, weight=0)
 
 
 # Универсальная функция для создания ячеек с рамкой
@@ -48,9 +49,9 @@ def create_cell(parent, widget_class, row, column, **kwargs):
     Автоматически отключает прокрутку колесиком мыши у Combobox.
     """
     frame = tk.Frame(parent, highlightbackground="black", highlightthickness=1)
-    frame.grid(row=row, column=column, sticky='nsew', padx=4, pady=4)
+    frame.grid(row=row, column=column, sticky='w', padx=4, pady=4)
     widget = widget_class(frame, **kwargs)
-    widget.pack(fill='both', expand=True)
+    widget.pack(fill='x')
 
     # Отключаем прокрутку у Combobox (чтобы не переключались случайно)
     if isinstance(widget, ttk.Combobox):
@@ -73,6 +74,7 @@ for i, (key, config) in enumerate(application_data.items()):
         i, 0,
         text=config["label"],
         font=("Arial", 12),
+        width=60,
         anchor='w'
     )
 
@@ -81,7 +83,7 @@ for i, (key, config) in enumerate(application_data.items()):
             content_frame, DateEntry, i, 1,
             textvariable=var,
             font=("Arial", 12),
-            width=30,
+            width=28,
             date_pattern='dd.mm.yyyy',
             locale='ru_RU'
         )
@@ -147,6 +149,7 @@ for i, (key, config) in enumerate(calculation_data.items()):
         row, 0,
         text=f"{i+1}. {config['label']}",
         font=("Arial", 12),
+        width=60,
         anchor='w'
     )
 
@@ -171,7 +174,7 @@ for i, (key, config) in enumerate(calculation_data.items()):
             ttk.Combobox,
             row, 1,
             font=("Arial", 12),
-            width=30,
+            width=28,
             values=config["values"],
             textvariable=var, state="readonly"
         )

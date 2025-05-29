@@ -2,72 +2,68 @@ import tkinter as tk
 
 
 class ScrollableFrame(tk.Frame):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
 
-        # Обертка
-        container = tk.Frame(self)
-        container.pack(
-            fill='both',
-            expand=True
+        # Канвас + скроллбары
+        self.canvas = tk.Canvas(
+            self,
+            bg="#f1f1f1"
         )
-
-        # Канвас
-        self.canvas = tk.Canvas(container)
-        self.canvas.pack(
-            side='left',
-            fill='both',
-            expand=True
-        )
-
-        # Скроллбары
-        v_scrollbar = tk.Scrollbar(
-            container,
-            orient='vertical',
+        self.v_scrollbar = tk.Scrollbar(
+            self,
+            orient="vertical",
             command=self.canvas.yview
         )
-        v_scrollbar.pack(
-            side='right',
-            fill='y'
-        )
-
-        h_scrollbar = tk.Scrollbar(
+        self.h_scrollbar = tk.Scrollbar(
             self,
-            orient='horizontal',
+            orient="horizontal",
             command=self.canvas.xview
         )
-        h_scrollbar.pack(
-            side='bottom',
-            fill='x'
-        )
 
-        # Настройка канваса
         self.canvas.configure(
-            yscrollcommand=v_scrollbar.set,
-            xscrollcommand=h_scrollbar.set
+            yscrollcommand=self.v_scrollbar.set,
+            xscrollcommand=self.h_scrollbar.set
         )
 
-        # Вложенный фрейм
-        self.main_frame = tk.Frame(self.canvas)
+        self.v_scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+        self.h_scrollbar.pack(
+            side="bottom",
+            fill="x"
+        )
+        self.canvas.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        # Внутренний фрейм
+        self.scrollable_frame = tk.Frame(self.canvas)
         self.canvas.create_window(
             (0, 0),
-            window=self.main_frame,
-            anchor='nw'
+            window=self.scrollable_frame,
+            anchor="nw"
         )
 
-        # Прокрутка колесиком
-        self.canvas.bind_all(
-            "<MouseWheel>",
-            self._on_mousewheel
-        )
-
-        self.main_frame.bind(
+        # Обновление области прокрутки при изменении размеров
+        self.scrollable_frame.bind(
             "<Configure>",
-            self._on_frame_configure
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
         )
 
-    def _on_frame_configure(self, event):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Поддержка прокрутки колесиком мыши
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _on_mousewheel_linux(self, event):
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
