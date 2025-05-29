@@ -17,7 +17,7 @@ data_applicant = {
     }
 }
 
-data_parameter = {
+data_connection_parameters = {
     "applicant_type": {
         "label": "Тип Заявителя",
         "type": "combobox",

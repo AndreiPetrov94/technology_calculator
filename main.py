@@ -1,8 +1,9 @@
 import tkinter as tk
+from tkinter import ttk
 from tkcalendar import DateEntry
 
 from scrollable_frame import ScrollableFrame
-from form_config import data_applicant, data_parameter
+from form_config import data_applicant, data_connection_parameters
 
 
 def create_main_window():
@@ -34,14 +35,12 @@ def create_applicant_table(parent, data_dict):
     font_style = ("Arial", 12)
     value_applicant = {}
 
-    for row_index, (field_key, field_info) in enumerate(data_dict.items()):
-        label_text = field_info.get("label", field_key)
-        field_type = field_info.get("type", "entry")
+    for row_index, (key, config) in enumerate(data_dict.items()):
 
         # Метка
         label = tk.Label(
             frame,
-            text=label_text,
+            text=config["label"],
             font=font_style,
             borderwidth=1,
             relief="solid",
@@ -59,7 +58,7 @@ def create_applicant_table(parent, data_dict):
         )
 
         # Поле ввода
-        if field_type == "entry":
+        if config["type"] == "entry":
             entry = tk.Entry(
                 frame,
                 width=50,
@@ -75,9 +74,9 @@ def create_applicant_table(parent, data_dict):
                 ipady=3,
                 sticky='w'
             )
-            value_applicant[field_key] = entry
+            value_applicant[key] = entry
 
-        elif field_type == "date":
+        elif config["type"] == "date":
             date_entry = DateEntry(
                 frame,
                 width=48,  # ширина по твоему усмотрению
@@ -95,7 +94,7 @@ def create_applicant_table(parent, data_dict):
                 ipady=3,
                 sticky='w'
             )
-            value_applicant[field_key] = date_entry
+            value_applicant[key] = date_entry
 
         else:
             tk.Label(
@@ -113,10 +112,43 @@ def create_applicant_table(parent, data_dict):
             )
 
 
+def configure_float_entry(entry_widget, min_value=0, max_value=32000):
+    def validate(P):
+        if P == "":
+            return True
+        # Заменяем запятую на точку для преобразования
+        try:
+            value = float(P.replace(",", "."))
+            # Проверка диапазона
+            if not (min_value <= value <= max_value):
+                return False
+            # Проверка количества знаков после запятой
+            parts = P.split(",")
+            if len(parts) == 2 and len(parts[1]) > 2:
+                return False
+            return True
+        except ValueError:
+            return False
+
+    def replace_dot(event):
+        text = entry_widget.get().replace(".", ",")
+        try:
+            value = float(text.replace(",", "."))
+            formatted = f"{value:.2f}".replace(".", ",")
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, formatted)
+        except ValueError:
+            pass  # Оставим поле без изменений, если невалидно
+
+    vcmd = (entry_widget.register(validate), "%P")
+    entry_widget.config(validate="key", validatecommand=vcmd)
+    entry_widget.bind("<FocusOut>", replace_dot)
+
+
 # ==== Таблица 2: Информация для расчета стоимости по ТП ====
-def create_paramet_table(parent, data_dict):
+def create_connection_parameters_table(parent, data_dict):
     section = tk.Frame(parent)
-    section.pack(anchor='w', padx=10, pady=5)
+    section.pack(anchor='w', padx=10, pady=0)
 
     # Заголовок секции
     title = tk.Label(
@@ -132,16 +164,15 @@ def create_paramet_table(parent, data_dict):
     frame.pack(anchor="w", padx=10, pady=5)
 
     font_style = ("Arial", 12)
-    value_paramet = {}
+    value_connection_parameters = {}
+    # vcmd = (frame.register(validate_float_input), '%P')
 
-    for row_index, (field_key, field_info) in enumerate(data_dict.items()):
-        label_text = field_info.get("label", field_key)
-        field_type = field_info.get("type", "entry")
+    for row_index, (key, config) in enumerate(data_dict.items()):
 
         # Метка
         label = tk.Label(
             frame,
-            text=label_text,
+            text=config["label"],
             font=font_style,
             borderwidth=1,
             relief="solid",
@@ -159,13 +190,13 @@ def create_paramet_table(parent, data_dict):
         )
 
         # Поле ввода
-        if field_type == "entry":
-            entry = tk.Entry(
+        if config["type"] == "combobox":
+            entry = ttk.Combobox(
                 frame,
-                width=30,
+                values=config["values"],
+                width=28,
                 font=font_style,
-                relief="solid",
-                borderwidth=1
+                state="readonly"
             )
             entry.grid(
                 row=row_index,
@@ -175,18 +206,19 @@ def create_paramet_table(parent, data_dict):
                 ipady=3,
                 sticky='w'
             )
-            value_paramet[field_key] = entry
+            entry.bind("<MouseWheel>", lambda e: "break")
+            value_connection_parameters[key] = entry
 
-        elif field_type == "date":
-            date_entry = DateEntry(
+        elif config["type"] == "float_entry":
+            entry = tk.Entry(
                 frame,
-                width=30,  # ширина по твоему усмотрению
+                width=30,
                 font=font_style,
                 relief="solid",
                 borderwidth=1,
-                date_pattern='dd.mm.yyyy'  # формат даты
+                validate="key"
             )
-            date_entry.grid(
+            entry.grid(
                 row=row_index,
                 column=1,
                 padx=5,
@@ -194,7 +226,21 @@ def create_paramet_table(parent, data_dict):
                 ipady=3,
                 sticky='w'
             )
-            value_paramet[field_key] = date_entry
+            configure_float_entry(entry)
+            value_connection_parameters[key] = entry
+
+        elif config["type"] == "readonly":
+            entry = tk.Entry(
+                frame,
+                width=30,
+                font=font_style,
+                relief="solid",
+                borderwidth=1,
+                state="readonly"
+            )
+            entry.grid(row=row_index, column=1, padx=5, pady=5, ipady=3, sticky='w')
+            value_connection_parameters[key] = entry
+
 
         else:
             tk.Label(
@@ -211,9 +257,6 @@ def create_paramet_table(parent, data_dict):
                 pady=5,
                 sticky='w'
             )
-
-
-
 
 
 # ==== UI ====
@@ -232,7 +275,7 @@ def setup_interface(root):
     scrollable.pack(fill='both', expand=True)
 
     create_applicant_table(scrollable.scrollable_frame, data_applicant)
-    create_paramet_table(scrollable.scrollable_frame, data_parameter)
+    create_connection_parameters_table(scrollable.scrollable_frame, data_connection_parameters)
 
 
 def main():
