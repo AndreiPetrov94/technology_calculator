@@ -9,7 +9,7 @@ from form_config_2 import (
     headers_dict,
     rates_dict
 )
-from scrollable_frame2 import ScrollableFrame
+from scrollable_frame_2 import ScrollableFrame
 from validators import validate_float, to_float, to_str
 
 

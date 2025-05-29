@@ -1,4 +1,4 @@
-application_data = {
+data_applicant = {
     "applicant_name": {
         "label": "Наименование заявителя:",
         "type": "entry"
@@ -17,7 +17,7 @@ application_data = {
     }
 }
 
-calculation_data = {
+data_parameter = {
     "applicant_type": {
         "label": "Тип Заявителя",
         "type": "combobox",
