@@ -71,7 +71,7 @@ def create_applicant_table(parent, data_dict):
                 column=1,
                 padx=5,
                 pady=5,
-                ipady=3,
+                ipady=2,
                 sticky='w'
             )
             value_applicant[key] = entry
@@ -91,7 +91,7 @@ def create_applicant_table(parent, data_dict):
                 column=1,
                 padx=5,
                 pady=5,
-                ipady=3,
+                ipady=2,
                 sticky='w'
             )
             value_applicant[key] = date_entry
@@ -203,7 +203,7 @@ def create_connection_parameters_table(parent, data_dict):
                 column=1,
                 padx=5,
                 pady=5,
-                ipady=3,
+                ipady=1,
                 sticky='w'
             )
             entry.bind("<MouseWheel>", lambda e: "break")
@@ -257,6 +257,43 @@ def create_connection_parameters_table(parent, data_dict):
                 pady=5,
                 sticky='w'
             )
+
+    # === Автоматический расчет power_total и category_result ===
+    def update_power_total(*args):
+        try:
+            prev = value_connection_parameters["power_prev"].get().replace(",", ".")
+            new = value_connection_parameters["power_new"].get().replace(",", ".")
+            power_total = float(prev or 0) + float(new or 0)
+
+            # Обновление поля power_total
+            total_field = value_connection_parameters["power_total"]
+            total_field.config(state="normal")
+            total_field.delete(0, tk.END)
+            total_field.insert(0, f"{power_total:.2f}".replace(".", ","))
+            total_field.config(state="readonly")
+
+            # Определение категории присоединения
+            if power_total <= 15.00:
+                category = "до 15 кВт"
+            elif power_total <= 150.00:
+                category = "от 15 до 150 кВт"
+            else:
+                category = "свыше 150 кВт"
+
+            # Обновление поля category_result
+            category_field = value_connection_parameters["category_result"]
+            category_field.config(state="normal")
+            category_field.delete(0, tk.END)
+            category_field.insert(0, category)
+            category_field.config(state="readonly")
+
+        except Exception:
+            pass  # Ошибка парсинга — можно игнорировать или логировать
+
+    # Привязка событий к обновлению при потере фокуса
+    value_connection_parameters["power_prev"].bind("<FocusOut>", lambda e: update_power_total())
+    value_connection_parameters["power_new"].bind("<FocusOut>", lambda e: update_power_total())
+
 
 
 # ==== UI ====
