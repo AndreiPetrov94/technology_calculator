@@ -179,8 +179,85 @@ def create_table(parent, title_text, data_dict, form_values, is_connection_secti
         form_values["location"].bind("<<ComboboxSelected>>", lambda e: update_distance_options())
 
 
+def update_benefit_text(form_values, label=None):
+    def get_value(key):
+        widget = form_values.get(key)
+        if widget is None:
+            return None
+        if isinstance(widget, ttk.Combobox) or isinstance(widget, DateEntry):
+            return widget.get()
+        elif isinstance(widget, tk.Entry):
+            return widget.get()
+        return None
+
+    applicant_type = get_value("applicant_type")
+    location = get_value("location")
+    voltage = get_value("voltage")
+    reliability_category = get_value("reliability_category")
+    distance = get_value("distance")
+    category = get_value("category_result")
+
+    required_fields = [applicant_type, location, voltage, reliability_category, distance, category]
+    if any(field is None or field == "" for field in required_fields):
+        result_text = "Для определения расчета по льготной ставке за 1 кВт заполните информацию"
+        bg_color = "SystemButtonFace"  # стандартный цвет фона (без выделения)
+    else:
+        condition_1 = (
+            applicant_type == "Физическое лицо" and
+            location in ["Город", "Поселок городского типа"] and
+            voltage == "0,4 кВ и ниже" and
+            reliability_category == "III" and
+            distance == "менее 300" and
+            category == "до 15 кВт"
+        )
+
+        condition_2 = (
+            applicant_type == "Физическое лицо" and
+            location == "Сельская местность" and
+            voltage == "0,4 кВ и ниже" and
+            reliability_category == "III" and
+            distance == "менее 500" and
+            category == "до 15 кВт"
+        )
+
+        condition_3 = (
+            applicant_type in ["Юридическое лицо", "Индивидуальный предприниматель"] and
+            location in ["Город", "Поселок городского типа"] and
+            voltage == "0,4 кВ и ниже" and
+            reliability_category == "III" and
+            distance == "менее 200" and
+            category in ["до 15 кВт", "от 15 до 150 кВт"]
+        )
+
+        condition_4 = (
+            applicant_type in ["Юридическое лицо", "Индивидуальный предприниматель"] and
+            location == "Сельская местность" and
+            voltage == "0,4 кВ и ниже" and
+            reliability_category == "III" and
+            distance == "менее 300" and
+            category in ["до 15 кВт", "от 15 до 150 кВт"]
+        )
+
+        general_condition_1 = not (condition_1 or condition_2)
+        general_condition_2 = not (condition_3 or condition_4)
+
+        if general_condition_1 and general_condition_2:
+            result_text = "Заявитель не подходит по критериям для расчета по льготной ставке за 1 кВт"
+            bg_color = "#ff8787"  # светло-красный (красный фон)
+        elif condition_1 or condition_2 or condition_3 or condition_4:
+            result_text = "Заявитель подходит по критериям для расчета по льготной ставке за 1 кВт"
+            bg_color = "#69f78a"  # светло-зеленый (зелёный фон)
+        else:
+            result_text = "Данные не полные или не соответствуют условиям"
+            bg_color = "SystemButtonFace"  # стандартный цвет фона
+
+    if label:
+        label.config(text=result_text, background=bg_color)
+
+
+
 # ==== Таблица 1: Заявитель ====
-def create_benefit_table(parent):
+def create_benefit_table(parent, form_values_connection):
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
 
@@ -189,23 +266,41 @@ def create_benefit_table(parent):
     frame.pack(anchor="w", padx=10, pady=5)
 
     font_style = ("Arial", 12)
-    value_benefit = {}
 
-    # Добавляем ячейку с текстом "пример", занимающую две колонки
     label_example = tk.Label(
         frame,
-        text="пример",
+        text="",
         font=font_style,
         borderwidth=1,
         relief="solid",
         padx=5,
         pady=5,
         width=92,
-        anchor='w'
+        anchor='c',
+        justify="left",
+        wraplength=1200
     )
     label_example.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='w')
 
-    return value_benefit
+    # Обновляем текст при инициализации
+    update_benefit_text(form_values_connection, label_example)
+
+    return label_example
+
+def bind_update_benefit_label(form_values, label):
+    keys_to_bind = [
+        "applicant_type", "location", "voltage",
+        "reliability_category", "distance", "category_result"
+    ]
+
+    for key in keys_to_bind:
+        widget = form_values.get(key)
+        if widget:
+            if isinstance(widget, ttk.Combobox):
+                widget.bind("<<ComboboxSelected>>", lambda e: update_benefit_text(form_values, label))
+            elif isinstance(widget, tk.Entry):
+                widget.bind("<FocusOut>", lambda e: update_benefit_text(form_values, label))
+
 
 
 def setup_interface(root):
@@ -240,7 +335,46 @@ def setup_interface(root):
         is_connection_section=True
     )
 
-    create_benefit_table(scrollable.scrollable_frame)
+    # Создаем метку льготы
+    benefit_label = create_benefit_table(scrollable.scrollable_frame, value_connection_parameters)
+
+    # Функция для обновления расстояний
+    def update_distance_options():
+        applicant = value_connection_parameters["applicant_type"].get()
+        location = value_connection_parameters["location"].get()
+        distance_widget = value_connection_parameters["distance"]
+
+        new_values = []
+
+        if applicant == "Физическое лицо":
+            if location in ["Город", "Поселок городского типа"]:
+                new_values = ["менее 300", "более 300"]
+            elif location == "Сельская местность":
+                new_values = ["менее 500", "более 500"]
+        elif applicant in ["Юридическое лицо", "Индивидуальный предприниматель"]:
+            if location in ["Город", "Поселок городского типа"]:
+                new_values = ["менее 200", "более 200"]
+            elif location == "Сельская местность":
+                new_values = ["менее 300", "более 300"]
+
+        if new_values:
+            distance_widget["values"] = new_values
+            distance_widget.set("")
+
+    # Единая функция для обновления расстояния и текста
+    def unified_update(event=None):
+        update_distance_options()
+        update_benefit_text(value_connection_parameters, benefit_label)
+
+    # Привязка событий для автообновления
+    value_connection_parameters["applicant_type"].bind("<<ComboboxSelected>>", unified_update)
+    value_connection_parameters["location"].bind("<<ComboboxSelected>>", unified_update)
+    value_connection_parameters["voltage"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
+    value_connection_parameters["reliability_category"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
+    value_connection_parameters["distance"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
+    value_connection_parameters["category_result"].bind("<FocusOut>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
+
+    return benefit_label
 
 
 def main():
