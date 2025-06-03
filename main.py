@@ -2,8 +2,10 @@ import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
 
+from collections import defaultdict
+
 from scrollable_frame import ScrollableFrame
-from form_config import data_applicant, data_connection_parameters, data_rate, data_rate_C2
+from form_config import data_applicant, data_connection_parameters, data_rate
 
 
 def create_main_window():
@@ -303,127 +305,56 @@ def bind_update_benefit_label(form_values, label):
 
 
 
-# ==== Таблица расчета ставок ====
-# def create_rate_table(parent):
-#     section = tk.Frame(parent)
-#     section.pack(anchor='w', padx=10, pady=5)
-
-#     # Основной фрейм с полями
-#     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
-#     frame.pack(anchor="w", padx=10, pady=5)
-
-#     font_style = ("Arial", 12)
-#     value_benefit = {}
-
-#     # Добавляем ячейку с текстом "пример", занимающую две колонки
-#     label_example = tk.Label(
-#         frame,
-#         text="пример",
-#         font=font_style,
-#         borderwidth=1,
-#         relief="solid",
-#         padx=5,
-#         pady=5,
-#         width=92,
-#         anchor='w'
-#     )
-#     label_example.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='w')
-
-#     return value_benefit
 
 
 
-# ===== Опции на основе data_rate_C2 =====
-data_rate_options = {
-    "voltage": list(data_rate_C2["C2"].keys()),
-    "section": {
-        voltage: list(data_rate_C2["C2"][voltage].keys())
-        for voltage in data_rate_C2["C2"]
-    },
-    "event_name": {
-        (voltage, section): list(data_rate_C2["C2"][voltage][section].keys())
-        for voltage in data_rate_C2["C2"]
-        for section in data_rate_C2["C2"][voltage]
-    },
-    "rate_per_km": {
-        (voltage, section, event): rate
-        for voltage in data_rate_C2["C2"]
-        for section in data_rate_C2["C2"][voltage]
-        for event, rate in data_rate_C2["C2"][voltage][section].items()
-    }
-}
 
-# ===== GUI-таблица =====
-def create_rate_table(parent):
+def create_dynamic_table_with_headers(parent, data):
+    
+    name_rate = data["name_rate"]
+    headers = data["headers"]
+
+    # Разметка секции
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
 
+    # Название таблицы
+    title = tk.Label(section, text=name_rate, font=("Arial", 12, "bold"), anchor="center")
+    title.pack(anchor='center')
+
+    # Рамка с таблицей
     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
     frame.pack(anchor="w", padx=10, pady=5)
 
-    headers = ["Напряжение", "Сечение", "Мероприятие", "Ставка, руб/км"]
-    for col, text in enumerate(headers):
-        tk.Label(frame, text=text, font=("Arial", 10, "bold"), borderwidth=1, relief="solid", width=30).grid(row=0, column=col, padx=1, pady=1)
+    font_style = ("Arial", 12)
 
-    widgets = {}
+    form_values = {}
 
-    def on_voltage_change(event, idx):
-        voltage = widgets[idx]["voltage"].get()
-        section_cb = widgets[idx]["section"]
-        section_cb["values"] = data_rate_options["section"].get(voltage, [])
-        section_cb.set("")
-        widgets[idx]["event_name"].set("")
-        widgets[idx]["event_name"]["values"] = []
-        widgets[idx]["rate_per_km"].config(state="normal")
-        widgets[idx]["rate_per_km"].delete(0, tk.END)
-        widgets[idx]["rate_per_km"].config(state="readonly")
+    # Создание заголовков
+    for col, header in enumerate(headers):
+        label = tk.Label(frame, text=header, font=font_style, borderwidth=1, relief="solid", padx=5, pady=5)
+        label.grid(row=0, column=col, sticky="nsew")
 
-    def on_section_change(event, idx):
-        voltage = widgets[idx]["voltage"].get()
-        section = widgets[idx]["section"].get()
-        key = (voltage, section)
-        event_cb = widgets[idx]["event_name"]
-        event_cb["values"] = data_rate_options["event_name"].get(key, [])
-        event_cb.set("")
-        widgets[idx]["rate_per_km"].config(state="normal")
-        widgets[idx]["rate_per_km"].delete(0, tk.END)
-        widgets[idx]["rate_per_km"].config(state="readonly")
+    # Пример: создаём 5 пустых строк для ввода
+    for row in range(1, 6):
+        form_values[row] = {}
+        for col in range(len(headers)):
+            entry = tk.Entry(frame, font=font_style)
+            entry.grid(row=row, column=col, sticky="nsew", padx=1, pady=1)
+            form_values[row][col] = entry
 
-    def on_event_change(event, idx):
-        voltage = widgets[idx]["voltage"].get()
-        section = widgets[idx]["section"].get()
-        name = widgets[idx]["event_name"].get()
-        key = (voltage, section, name)
-        rate = data_rate_options["rate_per_km"].get(key, "")
-        entry = widgets[idx]["rate_per_km"]
-        entry.config(state="normal")
-        entry.delete(0, tk.END)
-        entry.insert(0, f"{rate:.2f}" if isinstance(rate, float) else "")
-        entry.config(state="readonly")
+    return form_values
 
-    for row in range(1):
-        widgets[row] = {}
 
-        voltage = ttk.Combobox(frame, values=data_rate_options["voltage"], width=30)
-        section_cb = ttk.Combobox(frame, width=30)
-        event_cb = ttk.Combobox(frame, width=30)
-        rate_entry = tk.Entry(frame, width=30, state="readonly")
 
-        voltage.grid(row=row + 1, column=0, padx=1, pady=1)
-        section_cb.grid(row=row + 1, column=1, padx=1, pady=1)
-        event_cb.grid(row=row + 1, column=2, padx=1, pady=1)
-        rate_entry.grid(row=row + 1, column=3, padx=1, pady=1)
 
-        voltage.bind("<<ComboboxSelected>>", lambda e, i=row: on_voltage_change(e, i))
-        section_cb.bind("<<ComboboxSelected>>", lambda e, i=row: on_section_change(e, i))
-        event_cb.bind("<<ComboboxSelected>>", lambda e, i=row: on_event_change(e, i))
 
-        widgets[row]["voltage"] = voltage
-        widgets[row]["section"] = section_cb
-        widgets[row]["event_name"] = event_cb
-        widgets[row]["rate_per_km"] = rate_entry
 
-    return widgets
+
+
+
+
+
 
 
 def setup_interface(root):
@@ -473,16 +404,32 @@ def setup_interface(root):
     value_connection_parameters["distance"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
     value_connection_parameters["category_result"].bind("<FocusOut>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
 
-    create_rate_table(scrollable.scrollable_frame)
+    table_frame_C2 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C2"]
+    )
+    table_frame_C3_1 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C3_1"]
+    )
+    table_frame_C3_2 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C3_2"]
+    )
+    table_frame_C4 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C4"]
+    )
+    table_frame_C5 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C5"]
+    )
+    table_frame_C8 = create_dynamic_table_with_headers(
+        scrollable.scrollable_frame,
+        data_rate["C8"]
+    )
 
     return benefit_label
-
-
-
-
-
-
-
 
 def main():
     root = create_main_window()
