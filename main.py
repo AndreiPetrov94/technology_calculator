@@ -304,11 +304,6 @@ def bind_update_benefit_label(form_values, label):
                 widget.bind("<FocusOut>", lambda e: update_benefit_text(form_values, label))
 
 
-
-
-
-
-
 def create_dynamic_table_with_headers(parent, data):
     name_rate = data["name_rate"]
     headers = data["headers"]
@@ -444,25 +439,6 @@ def create_dynamic_table_with_headers(parent, data):
     add_row()
 
     return form_values
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def setup_interface(root):
     tk.Label(
