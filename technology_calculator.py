@@ -3,7 +3,7 @@ from tkinter import ttk
 from tkcalendar import DateEntry
 
 from constants import SCREEN_SIZE
-from form_config_2 import (
+from form_config_02 import (
     application_data,
     calculation_data,
     headers_dict,

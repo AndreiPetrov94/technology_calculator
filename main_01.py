@@ -5,7 +5,7 @@ from tkcalendar import DateEntry
 from collections import defaultdict
 
 from scrollable_frame import ScrollableFrame
-from form_config import data_applicant, data_connection_parameters, data_rate
+from form_config_01 import data_applicant, data_connection_parameters, data_rate
 
 
 def create_main_window():
@@ -340,33 +340,37 @@ def create_dynamic_table_with_headers(parent, data):
         try:
             cost_without_vat_col = headers.index("Стоимость без НДС, руб")
             cost_with_vat_col = headers.index("Стоимость с НДС, руб")
-            cost_rate_col = len(headers) - 4  # 4-й столбец с конца
-            length_col = len(headers) - 3     # 3-й столбец с конца
+            cost_rate_col = len(headers) - 4
+            length_col = len(headers) - 3
         except ValueError:
             return
 
         totals = {col: 0.0 for col in total_labels}
         for row_entries in form_values.values():
-            # Автоматический расчет "Стоимость без НДС, руб" = (стоимость ставки) * (длина)
+            # Автоматический расчет "Стоимость без НДС"
             try:
                 cost_rate_val = float(replace_comma_with_dot(row_entries[cost_rate_col].get()))
                 length_val = float(replace_comma_with_dot(row_entries[length_col].get()))
                 cost_without_vat = cost_rate_val * length_val
+                row_entries[cost_without_vat_col].config(state="normal")
                 row_entries[cost_without_vat_col].delete(0, tk.END)
                 row_entries[cost_without_vat_col].insert(0, f"{cost_without_vat:.2f}".replace('.', ','))
+                row_entries[cost_without_vat_col].config(state="readonly")
             except Exception:
                 pass
 
-            # Автоматический расчет "Стоимость с НДС, руб" = "Стоимость без НДС, руб" * 1.20
+            # Автоматический расчет "Стоимость с НДС"
             try:
                 cost_without_vat_val = float(replace_comma_with_dot(row_entries[cost_without_vat_col].get()))
                 cost_with_vat = cost_without_vat_val * 1.20
+                row_entries[cost_with_vat_col].config(state="normal")
                 row_entries[cost_with_vat_col].delete(0, tk.END)
                 row_entries[cost_with_vat_col].insert(0, f"{cost_with_vat:.2f}".replace('.', ','))
+                row_entries[cost_with_vat_col].config(state="readonly")
             except Exception:
                 pass
 
-            # Подсчет итогов по суммируемым столбцам
+            # Суммирование
             for col in totals:
                 try:
                     val = float(replace_comma_with_dot(row_entries[col].get()))
@@ -410,16 +414,31 @@ def create_dynamic_table_with_headers(parent, data):
     def add_row():
         nonlocal current_row
         form_values[current_row] = {}
+
+        try:
+            cost_without_vat_col = headers.index("Стоимость без НДС, руб")
+            cost_with_vat_col = headers.index("Стоимость с НДС, руб")
+        except ValueError:
+            cost_without_vat_col = cost_with_vat_col = -1
+
         for col in range(len(headers)):
-            entry = tk.Entry(frame, font=font_style, width=column_widths[col])
-            entry.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
+            if col == 0 and "№" in headers[0]:
+                label = tk.Label(frame, text=str(current_row), font=font_style, borderwidth=1, relief="solid",
+                                 padx=5, pady=5, width=column_widths[col])
+                label.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
+                form_values[current_row][col] = label
+            elif col == cost_without_vat_col or col == cost_with_vat_col:
+                entry = tk.Entry(frame, font=font_style, width=column_widths[col], state="readonly", readonlybackground="white")
+                entry.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
+                form_values[current_row][col] = entry
+            else:
+                entry = tk.Entry(frame, font=font_style, width=column_widths[col])
+                entry.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
+                entry.bind("<KeyRelease>", update_totals)
+                entry.bind("<FocusOut>", validate_and_format_float)
+                entry.bind("<FocusOut>", replace_dot_with_comma, add='+')
+                form_values[current_row][col] = entry
 
-            # Привязка событий
-            entry.bind("<KeyRelease>", update_totals)
-            entry.bind("<FocusOut>", validate_and_format_float)
-            entry.bind("<FocusOut>", replace_dot_with_comma, add='+')
-
-            form_values[current_row][col] = entry
         current_row += 1
         draw_total_row()
 
@@ -439,6 +458,7 @@ def create_dynamic_table_with_headers(parent, data):
     add_row()
 
     return form_values
+
 
 def setup_interface(root):
     tk.Label(
