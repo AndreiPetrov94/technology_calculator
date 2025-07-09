@@ -72,6 +72,8 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
     form_values = {}
     current_row = 1
 
+    totals_labels = {}
+
     def update_indices():
         for row_num in range(1, current_row):
             if index_col is not None and row_num in form_values:
@@ -95,7 +97,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             val = None
             if isinstance(widget, ttk.Combobox):
                 val = widget.get()
-            elif isinstance(widget, tuple):  # optionmenu (var, widget)
+            elif isinstance(widget, tuple):
                 var = widget[0]
                 val = var.get()
             else:
@@ -122,7 +124,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             val = None
             if isinstance(widget, ttk.Combobox):
                 val = widget.get()
-            elif isinstance(widget, tuple):  # optionmenu
+            elif isinstance(widget, tuple):
                 var = widget[0]
                 val = var.get()
             else:
@@ -150,16 +152,15 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                     widget_next['values'] = opts
                     if widget_next.get() not in opts:
                         widget_next.set('')
-                    # Clear subsequent comboboxes/optionmenus
                     for c in range(next_col + 1, price_rate_col):
                         w = form_values[row_num].get(c)
                         if isinstance(w, ttk.Combobox):
                             w.set('')
                             w['values'] = []
-                        elif isinstance(w, tuple):  # optionmenu
+                        elif isinstance(w, tuple):
                             update_optionmenu(w, [])
                             w[0].set('')
-                elif isinstance(widget_next, tuple):  # optionmenu
+                elif isinstance(widget_next, tuple):
                     update_optionmenu(widget_next, opts)
                     for c in range(next_col + 1, price_rate_col):
                         w = form_values[row_num].get(c)
@@ -176,7 +177,9 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
         update_totals()
 
     def update_totals():
-        for row_entries in form_values.values():
+        total_cost_without_vat = 0.0
+        total_cost_with_vat = 0.0
+        for row_num, row_entries in form_values.items():
             try:
                 cost_rate_val = float(replace_comma_with_dot(row_entries[price_rate_col].get()))
                 length_val = float(replace_comma_with_dot(row_entries[value_col].get()))
@@ -194,8 +197,48 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                 row_entries[cost_with_vat_col].delete(0, tk.END)
                 row_entries[cost_with_vat_col].insert(0, f"{cost_with_vat:.2f}".replace('.', ','))
                 row_entries[cost_with_vat_col].config(state='readonly')
+
+                total_cost_without_vat += cost_without_vat_val
+                total_cost_with_vat += cost_with_vat
             except Exception:
                 pass
+
+        # Обновляем строку "Итого"
+        if totals_labels:
+            totals_labels[cost_without_vat_col].config(text=f"{total_cost_without_vat:.2f}".replace('.', ','))
+            totals_labels[cost_with_vat_col].config(text=f"{total_cost_with_vat:.2f}".replace('.', ','))
+
+    def create_totals_row():
+        # Если строка "Итого" уже есть, удаляем её
+        if totals_labels:
+            for widget in totals_labels.values():
+                widget.grid_forget()
+                widget.destroy()
+            totals_labels.clear()
+
+        total_row = current_row
+        for col_idx, col_cfg in enumerate(columns_cfg):
+            width = column_widths[col_idx]
+            if col_cfg["type"] == "index":
+                lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
+                               width=width, padx=5, pady=5)
+                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+                totals_labels[col_idx] = lbl
+            elif col_cfg.get("key") == "price_rate":
+                lbl = tk.Label(frame, text="Итого:", font=font_style, borderwidth=1, relief="solid",
+                               width=width, padx=5, pady=5, anchor="e")
+                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+                totals_labels[col_idx] = lbl
+            elif col_cfg.get("key") in ("cost_without_vat", "cost_with_vat"):
+                lbl = tk.Label(frame, text="0,00", font=font_style, borderwidth=1, relief="solid",
+                               width=width, padx=5, pady=5, anchor="e")
+                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+                totals_labels[col_idx] = lbl
+            else:
+                lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
+                               width=width, padx=5, pady=5)
+                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+                totals_labels[col_idx] = lbl
 
     def add_row():
         nonlocal current_row
@@ -241,23 +284,33 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                 ent.bind("<FocusOut>", lambda e, r=current_row: on_validate_float(e, r))
                 form_values[current_row][col_idx] = ent
 
-        update_indices()
         current_row += 1
+        create_totals_row()
+        update_indices()
+        update_totals()
 
     def remove_last_row():
         nonlocal current_row
-        if current_row <= 1:  # если нет ни одной строки, ничего не удаляем
+        if current_row <= 1:
             return
-        # Удаляем строку с индексом current_row - 1
+        # Удаляем строку "Итого" перед удалением строки данных
+        if totals_labels:
+            for widget in totals_labels.values():
+                widget.grid_forget()
+                widget.destroy()
+            totals_labels.clear()
+
+        # Удаляем последнюю строку данных
         for widget in form_values[current_row - 1].values():
             if isinstance(widget, tk.Widget):
                 widget.grid_forget()
                 widget.destroy()
-            elif isinstance(widget, tuple):  # optionmenu tuple (var, widget)
+            elif isinstance(widget, tuple):
                 widget[1].grid_forget()
                 widget[1].destroy()
         form_values.pop(current_row - 1)
         current_row -= 1
+        create_totals_row()
         update_indices()
         update_totals()
 
@@ -267,6 +320,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
     add_btn.pack(side="left", padx=10)
     remove_btn = tk.Button(btn_frame, text="Удалить строку", font=font_style, bg="#ff8787", width=20, command=remove_last_row)
     remove_btn.pack(side="left", padx=5)
+
     add_row()
     return frame, add_row, remove_last_row
 
