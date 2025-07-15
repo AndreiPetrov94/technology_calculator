@@ -42,12 +42,16 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
     name_rate = data_rate_config["name_rate"]
     columns_cfg = data_rate_config["columns"]
     column_widths = data_rate_config.get("column_widths", [15] * len(columns_cfg))
+
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
+
     title = tk.Label(section, text=name_rate, font=("Arial", 12, "bold"), anchor="center")
     title.pack(anchor='center')
+
     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
     frame.pack(anchor="w", padx=10, pady=5)
+
     font_style = ("Arial", 12)
     headers = [col["header"] for col in columns_cfg]
 
@@ -71,7 +75,6 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
 
     form_values = {}
     current_row = 1
-
     totals_labels = {}
 
     def update_indices():
@@ -132,7 +135,6 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             if val == "":
                 break
             selections.append(val)
-
         price = get_nested_dict_by_path(data_rate_all_dict, selections)
         price_widget = form_values[row_num].get(price_rate_col)
         if isinstance(price_widget, tk.Entry):
@@ -179,6 +181,8 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
     def update_totals():
         total_cost_without_vat = 0.0
         total_cost_with_vat = 0.0
+        total_length = 0.0
+
         for row_num, row_entries in form_values.items():
             try:
                 cost_rate_val = float(replace_comma_with_dot(row_entries[price_rate_col].get()))
@@ -188,8 +192,10 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                 row_entries[cost_without_vat_col].delete(0, tk.END)
                 row_entries[cost_without_vat_col].insert(0, f"{cost_without_vat:.2f}".replace('.', ','))
                 row_entries[cost_without_vat_col].config(state='readonly')
+                total_length += length_val
             except Exception:
                 pass
+
             try:
                 cost_without_vat_val = float(replace_comma_with_dot(row_entries[cost_without_vat_col].get()))
                 cost_with_vat = cost_without_vat_val * 1.20
@@ -203,13 +209,15 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             except Exception:
                 pass
 
-        # Обновляем строку "Итого"
         if totals_labels:
-            totals_labels[cost_without_vat_col].config(text=f"{total_cost_without_vat:.2f}".replace('.', ','))
-            totals_labels[cost_with_vat_col].config(text=f"{total_cost_with_vat:.2f}".replace('.', ','))
+            if value_col in totals_labels:
+                totals_labels[value_col].config(text=f"{total_length:.2f}".replace('.', ','))
+            if cost_without_vat_col in totals_labels:
+                totals_labels[cost_without_vat_col].config(text=f"{total_cost_without_vat:.2f}".replace('.', ','))
+            if cost_with_vat_col in totals_labels:
+                totals_labels[cost_with_vat_col].config(text=f"{total_cost_with_vat:.2f}".replace('.', ','))
 
     def create_totals_row():
-        # Если строка "Итого" уже есть, удаляем её
         if totals_labels:
             for widget in totals_labels.values():
                 widget.grid_forget()
@@ -219,26 +227,23 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
         total_row = current_row
         for col_idx, col_cfg in enumerate(columns_cfg):
             width = column_widths[col_idx]
+            key = col_cfg.get("key")
+
             if col_cfg["type"] == "index":
                 lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
                                width=width, padx=5, pady=5)
-                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
-                totals_labels[col_idx] = lbl
-            elif col_cfg.get("key") == "price_rate":
+            elif key == "price_rate":
                 lbl = tk.Label(frame, text="Итого:", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5, anchor="e")
-                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
-                totals_labels[col_idx] = lbl
-            elif col_cfg.get("key") in ("cost_without_vat", "cost_with_vat"):
+                               width=width, padx=5, pady=5)
+            elif key in ("cost_without_vat", "cost_with_vat", "value"):
                 lbl = tk.Label(frame, text="0,00", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5, anchor="e")
-                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
-                totals_labels[col_idx] = lbl
+                               width=width, padx=5, pady=5)
             else:
                 lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
                                width=width, padx=5, pady=5)
-                lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
-                totals_labels[col_idx] = lbl
+
+            lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+            totals_labels[col_idx] = lbl
 
     def add_row():
         nonlocal current_row
@@ -273,12 +278,12 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                 form_values[current_row][col_idx] = (var, om)
 
             elif col_type == "readonly":
-                ent = tk.Entry(frame, font=font_style, width=width, state='readonly', justify='right')
+                ent = tk.Entry(frame, font=font_style, width=width, state='readonly', justify='center')
                 ent.grid(row=current_row, column=col_idx, sticky="nsew", padx=3, pady=3)
                 form_values[current_row][col_idx] = ent
 
             elif col_type == "float_entry":
-                ent = tk.Entry(frame, font=font_style, width=width, justify='right')
+                ent = tk.Entry(frame, font=font_style, width=width, justify='center')
                 ent.grid(row=current_row, column=col_idx, sticky="nsew", padx=3, pady=3)
                 ent.insert(0, '0')
                 ent.bind("<FocusOut>", lambda e, r=current_row: on_validate_float(e, r))
@@ -293,14 +298,12 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
         nonlocal current_row
         if current_row <= 1:
             return
-        # Удаляем строку "Итого" перед удалением строки данных
         if totals_labels:
             for widget in totals_labels.values():
                 widget.grid_forget()
                 widget.destroy()
             totals_labels.clear()
 
-        # Удаляем последнюю строку данных
         for widget in form_values[current_row - 1].values():
             if isinstance(widget, tk.Widget):
                 widget.grid_forget()
