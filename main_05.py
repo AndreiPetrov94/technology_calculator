@@ -31,7 +31,7 @@ def validate_and_format_float(event, min_val=0.0, max_val=32000.0):
         value = float(text)
         if not (min_val <= value <= max_val):
             raise ValueError("Out of range")
-        formatted = f"{value:.2f}".replace('.', ',')
+        formatted = f"{value:.3f}".replace('.', ',')
         entry.delete(0, tk.END)
         entry.insert(0, formatted)
     except ValueError:
@@ -70,7 +70,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
 
     for col, header in enumerate(headers):
         label = tk.Label(frame, text=header, font=font_style, borderwidth=1, relief="solid",
-                         padx=5, pady=5, width=column_widths[col])
+                         padx=5, pady=10, width=column_widths[col], wraplength=125)
         label.grid(row=0, column=col, sticky="nsew", padx=3, pady=3)
 
     form_values = {}
@@ -187,7 +187,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             try:
                 cost_rate_val = float(replace_comma_with_dot(row_entries[price_rate_col].get()))
                 length_val = float(replace_comma_with_dot(row_entries[value_col].get()))
-                cost_without_vat = cost_rate_val * length_val
+                cost_without_vat = round(cost_rate_val * length_val, 2)
                 row_entries[cost_without_vat_col].config(state='normal')
                 row_entries[cost_without_vat_col].delete(0, tk.END)
                 row_entries[cost_without_vat_col].insert(0, f"{cost_without_vat:.2f}".replace('.', ','))
@@ -198,7 +198,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
 
             try:
                 cost_without_vat_val = float(replace_comma_with_dot(row_entries[cost_without_vat_col].get()))
-                cost_with_vat = cost_without_vat_val * 1.20
+                cost_with_vat = round(cost_without_vat_val * 1.20, 2)  # округление до 2 знаков
                 row_entries[cost_with_vat_col].config(state='normal')
                 row_entries[cost_with_vat_col].delete(0, tk.END)
                 row_entries[cost_with_vat_col].insert(0, f"{cost_with_vat:.2f}".replace('.', ','))
@@ -211,7 +211,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
 
         if totals_labels:
             if value_col in totals_labels:
-                totals_labels[value_col].config(text=f"{total_length:.2f}".replace('.', ','))
+                totals_labels[value_col].config(text=f"{total_length:.3f}".replace('.', ','))
             if cost_without_vat_col in totals_labels:
                 totals_labels[cost_without_vat_col].config(text=f"{total_cost_without_vat:.2f}".replace('.', ','))
             if cost_with_vat_col in totals_labels:
@@ -225,22 +225,52 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             totals_labels.clear()
 
         total_row = current_row
+        merged_until_col = price_rate_col + 1  # объединить от 0 до следующей после "price_rate"
+
+        # Создаём объединённую ячейку с текстом "Итого"
+        lbl_total = tk.Label(
+            frame,
+            text="Итого:",
+            font=font_style,
+            borderwidth=1,
+            relief="solid",
+            padx=5,
+            pady=5,
+            justify="center"
+        )
+        lbl_total.grid(row=total_row, column=0, columnspan=merged_until_col, sticky="nsew", padx=3, pady=3)
+        totals_labels["merged"] = lbl_total
+
+        # Остальные ячейки
         for col_idx, col_cfg in enumerate(columns_cfg):
+            if col_idx < merged_until_col:
+                continue  # пропущены, они объединены
+
             width = column_widths[col_idx]
             key = col_cfg.get("key")
 
-            if col_cfg["type"] == "index":
-                lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5)
-            elif key == "price_rate":
-                lbl = tk.Label(frame, text="Итого:", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5)
-            elif key in ("cost_without_vat", "cost_with_vat", "value"):
-                lbl = tk.Label(frame, text="0,00", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5)
+            if key in ("cost_without_vat", "cost_with_vat", "value"):
+                lbl = tk.Label(
+                    frame,
+                    text="0,00",
+                    font=font_style,
+                    borderwidth=1,
+                    relief="solid",
+                    width=width,
+                    padx=5,
+                    pady=5
+                )
             else:
-                lbl = tk.Label(frame, text="", font=font_style, borderwidth=1, relief="solid",
-                               width=width, padx=5, pady=5)
+                lbl = tk.Label(
+                    frame,
+                    text="",
+                    font=font_style,
+                    borderwidth=1,
+                    relief="solid",
+                    width=width,
+                    padx=5,
+                    pady=5
+                )
 
             lbl.grid(row=total_row, column=col_idx, sticky="nsew", padx=3, pady=3)
             totals_labels[col_idx] = lbl
@@ -254,7 +284,7 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
 
             if col_type == "index":
                 lbl = tk.Label(frame, text=str(current_row), font=font_style, borderwidth=1,
-                               relief="solid", width=width, padx=5, pady=5)
+                            relief="solid", width=width, padx=5, pady=5)
                 lbl.grid(row=current_row, column=col_idx, sticky="nsew", padx=3, pady=3)
                 form_values[current_row][col_idx] = lbl
 
@@ -285,7 +315,9 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
             elif col_type == "float_entry":
                 ent = tk.Entry(frame, font=font_style, width=width, justify='center')
                 ent.grid(row=current_row, column=col_idx, sticky="nsew", padx=3, pady=3)
-                ent.insert(0, '0')
+                # УБИРАЕМ начальное '0'
+                # ent.insert(0, '0')  ← удалено
+                ent.bind("<KeyRelease>", lambda e, r=current_row: update_totals())
                 ent.bind("<FocusOut>", lambda e, r=current_row: on_validate_float(e, r))
                 form_values[current_row][col_idx] = ent
 
