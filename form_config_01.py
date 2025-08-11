@@ -92,6 +92,10 @@ data_connection_parameters = {
     }
 }
 
+data_rate_power = {
+    "max_rate": 10,
+    "min_rate": 5
+}
 
 
 # data_rate_C2 = {

@@ -5,7 +5,7 @@ from tkcalendar import DateEntry
 from collections import defaultdict
 
 from scrollable_frame import ScrollableFrame
-from form_config_01 import data_applicant, data_connection_parameters, data_rate
+from form_config_01 import data_applicant, data_connection_parameters, data_rate_power
 
 
 def create_main_window():
@@ -41,7 +41,7 @@ def validate_and_format_float(event, min_val=0.0, max_val=32000.0):
         if not (min_val <= value <= max_val):
             raise ValueError("Out of range")
 
-        formatted = f"{value:.2f}".replace('.', ',')
+        formatted = f"{value:.3f}".replace('.', ',')
         entry.delete(0, tk.END)
         entry.insert(0, formatted)
 
@@ -303,161 +303,56 @@ def bind_update_benefit_label(form_values, label):
             elif isinstance(widget, tk.Entry):
                 widget.bind("<FocusOut>", lambda e: update_benefit_text(form_values, label))
 
+# ==== Таблица для расчета ставок ====
+def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_dict):
+    pass
 
-def create_dynamic_table_with_headers(parent, data):
-    name_rate = data["name_rate"]
-    headers = data["headers"]
-    column_widths = data.get("column_widths", [15] * len(headers))
 
+# ==== Таблица для расчета итоговой стоимости и сравнения ставок ====
+def create_result_table(parent):
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
 
-    title = tk.Label(section, text=name_rate, font=("Arial", 12, "bold"), anchor="center")
+    title = tk.Label(section, text='Расчет по льготной ставке за 1 кВт и СТС',
+                     font=("Arial", 12, "bold"), anchor="center")
     title.pack(anchor='center')
 
     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
     frame.pack(anchor="w", padx=10, pady=5)
 
-    font_style = ("Arial", 12)
-    form_values = {}
+    font_style_header = ("Arial", 12, "bold")
+    font_style_cells = ("Arial", 12)
 
+    headers = ["Ставка", "Стоимость без НДС, руб", "Сумма НДС, руб", "Стоимость с НДС, руб"]
+    big_cells_texts = [
+        "Стоимость мероприятий по ТП,\nрассчитанная с применением\nльготной ставки за 1 кВт",
+        "Стоимость мероприятий по ТП,\nрассчитанная с применением\nстандартизированных\nтарифных ставок"
+    ]
+
+    # Заголовки
     for col, header in enumerate(headers):
-        label = tk.Label(frame, text=header, font=font_style, borderwidth=1, relief="solid",
-                         padx=5, pady=5, width=column_widths[col])
-        label.grid(row=0, column=col, sticky="nsew", padx=3, pady=3)
+        lbl = tk.Label(frame, text=header, font=font_style_header,
+                       borderwidth=1, relief="solid", width=25, anchor="center")
+        lbl.grid(row=0, column=col, padx=5, pady=5, ipady=2, sticky="nsew")
 
-    current_row = 1
-    total_labels = {}
-    total_label_widget = None
-    buttons_widgets = []
-    merge_end_col = 0
-    for i, header in enumerate(headers):
-        if "Стоимость ставки" in header:
-            merge_end_col = i
-            break
+    def create_big_cell_block(start_row, text):
+        # Ячейка с объединением двух строк
+        lbl = tk.Label(frame, text=text, font=font_style_cells, borderwidth=1,
+                       relief="solid", anchor="w", justify="left", width=25)
+        lbl.grid(row=start_row, column=0, rowspan=2, padx=5, pady=5, ipady=10, sticky="nsew")
 
-    def update_totals(*args):
-        try:
-            cost_without_vat_col = headers.index("Стоимость без НДС, руб")
-            cost_with_vat_col = headers.index("Стоимость с НДС, руб")
-            cost_rate_col = len(headers) - 4
-            length_col = len(headers) - 3
-        except ValueError:
-            return
+        # Создаем по 3 поля ввода в каждой из двух строк
+        for row in (start_row, start_row + 1):
+            for col in range(1, 4):
+                entry = tk.Entry(frame, font=font_style_cells, borderwidth=1,
+                                 relief="solid", width=25)
+                entry.grid(row=row, column=col, padx=5, pady=5, ipady=15, sticky="nsew")
 
-        totals = {col: 0.0 for col in total_labels}
-        for row_entries in form_values.values():
-            # Автоматический расчет "Стоимость без НДС"
-            try:
-                cost_rate_val = float(replace_comma_with_dot(row_entries[cost_rate_col].get()))
-                length_val = float(replace_comma_with_dot(row_entries[length_col].get()))
-                cost_without_vat = cost_rate_val * length_val
-                row_entries[cost_without_vat_col].config(state="normal")
-                row_entries[cost_without_vat_col].delete(0, tk.END)
-                row_entries[cost_without_vat_col].insert(0, f"{cost_without_vat:.2f}".replace('.', ','))
-                row_entries[cost_without_vat_col].config(state="readonly")
-            except Exception:
-                pass
+    # Создаем два больших блока подряд
+    create_big_cell_block(1, big_cells_texts[0])
+    create_big_cell_block(3, big_cells_texts[1])
 
-            # Автоматический расчет "Стоимость с НДС"
-            try:
-                cost_without_vat_val = float(replace_comma_with_dot(row_entries[cost_without_vat_col].get()))
-                cost_with_vat = cost_without_vat_val * 1.20
-                row_entries[cost_with_vat_col].config(state="normal")
-                row_entries[cost_with_vat_col].delete(0, tk.END)
-                row_entries[cost_with_vat_col].insert(0, f"{cost_with_vat:.2f}".replace('.', ','))
-                row_entries[cost_with_vat_col].config(state="readonly")
-            except Exception:
-                pass
-
-            # Суммирование
-            for col in totals:
-                try:
-                    val = float(replace_comma_with_dot(row_entries[col].get()))
-                    totals[col] += val
-                except Exception:
-                    pass
-
-        for col, total in totals.items():
-            total_labels[col].config(text=f"{total:.2f}".replace('.', ','))
-
-    def draw_total_row():
-        nonlocal total_label_widget
-
-        if total_label_widget:
-            total_label_widget.destroy()
-        for lbl in total_labels.values():
-            lbl.destroy()
-        total_labels.clear()
-
-        for btn in buttons_widgets:
-            btn.grid_forget()
-
-        total_row = current_row
-
-        total_label_widget = tk.Label(frame, text="ИТОГО", font=font_style, borderwidth=1, relief="solid",
-                                      padx=5, pady=5)
-        total_label_widget.grid(row=total_row, column=0, columnspan=merge_end_col + 1,
-                                sticky="nsew", padx=3, pady=3)
-
-        for col in range(merge_end_col + 1, len(headers)):
-            lbl = tk.Label(frame, text="0", font=font_style, borderwidth=1, relief="solid",
-                           padx=5, pady=5, width=column_widths[col])
-            lbl.grid(row=total_row, column=col, sticky="nsew", padx=3, pady=3)
-            total_labels[col] = lbl
-
-        btn_row = total_row + 1
-        buttons_widgets[0].grid(row=btn_row, column=0, sticky="w", padx=5, pady=10)
-        buttons_widgets[1].grid(row=btn_row, column=1, sticky="w", padx=5, pady=10)
-        update_totals()
-
-    def add_row():
-        nonlocal current_row
-        form_values[current_row] = {}
-
-        try:
-            cost_without_vat_col = headers.index("Стоимость без НДС, руб")
-            cost_with_vat_col = headers.index("Стоимость с НДС, руб")
-        except ValueError:
-            cost_without_vat_col = cost_with_vat_col = -1
-
-        for col in range(len(headers)):
-            if col == 0 and "№" in headers[0]:
-                label = tk.Label(frame, text=str(current_row), font=font_style, borderwidth=1, relief="solid",
-                                 padx=5, pady=5, width=column_widths[col])
-                label.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
-                form_values[current_row][col] = label
-            elif col == cost_without_vat_col or col == cost_with_vat_col:
-                entry = tk.Entry(frame, font=font_style, width=column_widths[col], state="readonly", readonlybackground="white")
-                entry.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
-                form_values[current_row][col] = entry
-            else:
-                entry = tk.Entry(frame, font=font_style, width=column_widths[col])
-                entry.grid(row=current_row, column=col, sticky="nsew", padx=3, pady=3)
-                entry.bind("<KeyRelease>", update_totals)
-                entry.bind("<FocusOut>", validate_and_format_float)
-                entry.bind("<FocusOut>", replace_dot_with_comma, add='+')
-                form_values[current_row][col] = entry
-
-        current_row += 1
-        draw_total_row()
-
-    def remove_row():
-        nonlocal current_row
-        if current_row > 1:
-            for widget in form_values[current_row - 1].values():
-                widget.destroy()
-            del form_values[current_row - 1]
-            current_row -= 1
-            draw_total_row()
-
-    btn_add = tk.Button(frame, text="Добавить строку", font=font_style, bg="#69f78a", width=20, command=add_row)
-    btn_remove = tk.Button(frame, text="Удалить строку", font=font_style, bg="#ff8787", width=20, command=remove_row)
-    buttons_widgets = [btn_add, btn_remove]
-
-    add_row()
-
-    return form_values
+    return frame
 
 
 def setup_interface(root):
@@ -507,30 +402,7 @@ def setup_interface(root):
     value_connection_parameters["distance"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
     value_connection_parameters["category_result"].bind("<FocusOut>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
 
-    table_frame_C2 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C2"]
-    )
-    table_frame_C3_1 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C3_1"]
-    )
-    table_frame_C3_2 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C3_2"]
-    )
-    table_frame_C4 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C4"]
-    )
-    table_frame_C5 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C5"]
-    )
-    table_frame_C8 = create_dynamic_table_with_headers(
-        scrollable.scrollable_frame,
-        data_rate["C8"]
-    )
+    result_entries = create_result_table(scrollable.scrollable_frame)
 
     return benefit_label
 
