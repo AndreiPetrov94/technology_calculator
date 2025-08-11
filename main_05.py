@@ -300,11 +300,13 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
                 var = tk.StringVar()
                 var.set('')
                 om = tk.OptionMenu(frame, var, '')
-                om.config(font=font_style, width=width)
+                om.config(font=font_style, width=width, anchor="w", justify="left", padx=5)
                 om.grid(row=current_row, column=col_idx, sticky="nsew", padx=3, pady=3)
+
                 def callback(*args, r=current_row, c=col_idx):
                     on_combobox_select(None, r, c)
                 var.trace_add("write", callback)
+
                 form_values[current_row][col_idx] = (var, om)
 
             elif col_type == "readonly":
