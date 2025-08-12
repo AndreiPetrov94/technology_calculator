@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
+from num2words import num2words
 
 from collections import defaultdict
 
@@ -308,6 +309,43 @@ def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_di
     pass
 
 
+
+
+def number_to_words_rub_kop(value_str):
+    """
+    Преобразует строку '2,45' в 'два рубля сорок пять копеек'
+    """
+    try:
+        value_str = value_str.replace(',', '.')
+        value = float(value_str)
+    except ValueError:
+        return ""
+
+    rub = int(value)
+    kop = int(round((value - rub) * 100))
+
+    rub_text = num2words(rub, lang='ru')
+    kop_text = num2words(kop, lang='ru')
+
+    # Склонения для рублей
+    if rub % 10 == 1 and rub % 100 != 11:
+        rub_word = "рубль"
+    elif 2 <= rub % 10 <= 4 and (rub % 100 < 10 or rub % 100 >= 20):
+        rub_word = "рубля"
+    else:
+        rub_word = "рублей"
+
+    # Склонения для копеек
+    if kop % 10 == 1 and kop % 100 != 11:
+        kop_word = "копейка"
+    elif 2 <= kop % 10 <= 4 and (kop % 100 < 10 or kop % 100 >= 20):
+        kop_word = "копейки"
+    else:
+        kop_word = "копеек"
+
+    return f"{rub_text} {rub_word} {kop_text} {kop_word}"
+
+
 # ==== Таблица для расчета итоговой стоимости и сравнения ставок ====
 def create_result_table(parent):
     section = tk.Frame(parent)
@@ -329,31 +367,69 @@ def create_result_table(parent):
         "Стоимость мероприятий по ТП,\nрассчитанная с применением\nстандартизированных\nтарифных ставок"
     ]
 
-    # Заголовки
     for col, header in enumerate(headers):
         lbl = tk.Label(frame, text=header, font=font_style_header,
                        borderwidth=1, relief="solid", width=25, anchor="center")
         lbl.grid(row=0, column=col, padx=5, pady=5, ipady=2, sticky="nsew")
 
+    def validate_and_copy_words(event, linked_var):
+        entry = event.widget
+        text = entry.get().replace(',', '.')
+        try:
+            value = float(text)
+            if not (0.0 <= value <= 1000000000.0):
+                raise ValueError("Out of range")
+            formatted = f"{value:.2f}".replace('.', ',')
+            entry.delete(0, tk.END)
+            entry.insert(0, formatted)
+            linked_var.set(number_to_words_rub_kop(formatted))
+        except ValueError:
+            entry.delete(0, tk.END)
+            linked_var.set("")
+
+    def copy_to_clipboard(text_var):
+        parent.clipboard_clear()
+        parent.clipboard_append(text_var.get())
+
     def create_big_cell_block(start_row, text):
-        # Ячейка с объединением двух строк
         lbl = tk.Label(frame, text=text, font=font_style_cells, borderwidth=1,
-                       relief="solid", anchor="w", justify="left", width=25)
+                    relief="solid", anchor="w", justify="left", width=25)
         lbl.grid(row=start_row, column=0, rowspan=2, padx=5, pady=5, ipady=10, sticky="nsew")
 
-        # Создаем по 3 поля ввода в каждой из двух строк
-        for row in (start_row, start_row + 1):
-            for col in range(1, 4):
-                entry = tk.Entry(frame, font=font_style_cells, borderwidth=1,
-                                 relief="solid", width=25)
-                entry.grid(row=row, column=col, padx=5, pady=5, ipady=15, sticky="nsew")
+        for col in range(1, 4):
+            display_var = tk.StringVar()
 
-    # Создаем два больших блока подряд
+            entry = tk.Entry(frame, font=font_style_cells, borderwidth=1,
+                            relief="solid", width=35, justify='center')  # <-- центрируем
+            entry.grid(row=start_row, column=col, padx=5, pady=5, ipady=15, sticky="nsew")
+            entry.bind("<FocusOut>", lambda e, var=display_var: validate_and_copy_words(e, var))
+
+            container = tk.Frame(frame)
+            container.grid(row=start_row + 1, column=col, padx=5, pady=(0,0), sticky="nsew")
+
+            display = tk.Text(container, font=font_style_cells, borderwidth=1,
+                            relief="solid", width=35, height=2, wrap="word")
+            display.pack(side="left", fill="both", expand=True, padx=(0,5))
+
+            display.insert("1.0", display_var.get())
+            display.config(state="disabled")
+
+            def update_text(*args, disp=display, var=display_var):
+                disp.config(state="normal")
+                disp.delete("1.0", tk.END)
+                disp.insert("1.0", var.get())
+                disp.config(state="disabled")
+
+            display_var.trace_add("write", update_text)
+
+            btn_copy = tk.Button(container, text="❐", font=("Arial", 12),
+                                command=lambda var=display_var: copy_to_clipboard(var))
+            btn_copy.pack(side="left", ipady=15)
+
     create_big_cell_block(1, big_cells_texts[0])
     create_big_cell_block(3, big_cells_texts[1])
 
     return frame
-
 
 def setup_interface(root):
     tk.Label(
