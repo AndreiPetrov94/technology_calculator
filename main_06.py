@@ -2,10 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
 from num2words import num2words
-from collections import defaultdict
 from scrollable_frame import ScrollableFrame
 from form_config_01 import data_applicant, data_connection_parameters, data_rate_power
-
 
 def create_main_window():
     root = tk.Tk()
@@ -155,58 +153,68 @@ def create_table(parent, title_text, data_dict, form_values, is_connection_secti
         form_values["applicant_type"].bind("<<ComboboxSelected>>", lambda e: update_distance_options(form_values))
         form_values["location"].bind("<<ComboboxSelected>>", lambda e: update_distance_options(form_values))
 
-def update_benefit_text(form_values, label=None):
-    def get_value(key):
-        widget = form_values.get(key)
+def extract_form_values(form_values):
+    def get_value(widget):
         if widget is None:
             return None
-        if isinstance(widget, ttk.Combobox) or isinstance(widget, DateEntry):
-            return widget.get()
-        elif isinstance(widget, tk.Entry):
+        if isinstance(widget, (ttk.Combobox, DateEntry, tk.Entry)):
             return widget.get()
         return None
-    applicant_type = get_value("applicant_type")
-    location = get_value("location")
-    voltage = get_value("voltage")
-    reliability_category = get_value("reliability_category")
-    distance = get_value("distance")
-    category = get_value("category_result")
-    required_fields = [applicant_type, location, voltage, reliability_category, distance, category]
-    if any(field is None or field == "" for field in required_fields):
+
+    values = {}
+    for key, widget in form_values.items():
+        values[key] = get_value(widget)
+    return values
+
+
+def update_benefit_text(form_values, label=None):
+    keys = [
+        "applicant_type",
+        "location",
+        "voltage",
+        "reliability_category",
+        "distance",
+        "category_result"
+    ]
+    # Извлекаем все значения (без передачи keys)
+    values = extract_form_values(form_values)
+
+    # Проверяем, что все ключи есть в values и их значения не пусты
+    if any(values.get(k) is None or values.get(k) == "" for k in keys):
         result_text = "Для определения признака расчета по льготной ставке за 1 кВт заполните информацию"
         bg_color = "SystemButtonFace"
     else:
         condition_1 = (
-            applicant_type == "Физическое лицо" and
-            location in ["Город", "Поселок городского типа"] and
-            voltage == "0,4 кВ и ниже" and
-            reliability_category == "III" and
-            distance == "менее 300" and
-            category == "до 15 кВт"
+            values["applicant_type"] == "Физическое лицо" and
+            values["location"] in ["Город", "Поселок городского типа"] and
+            values["voltage"] == "0,4 кВ и ниже" and
+            values["reliability_category"] == "III" and
+            values["distance"] == "менее 300" and
+            values["category_result"] == "до 15 кВт"
         )
         condition_2 = (
-            applicant_type == "Физическое лицо" and
-            location == "Сельская местность" and
-            voltage == "0,4 кВ и ниже" and
-            reliability_category == "III" and
-            distance == "менее 500" and
-            category == "до 15 кВт"
+            values["applicant_type"] == "Физическое лицо" and
+            values["location"] == "Сельская местность" and
+            values["voltage"] == "0,4 кВ и ниже" and
+            values["reliability_category"] == "III" and
+            values["distance"] == "менее 500" and
+            values["category_result"] == "до 15 кВт"
         )
         condition_3 = (
-            applicant_type in ["Юридическое лицо", "Индивидуальный предприниматель"] and
-            location in ["Город", "Поселок городского типа"] and
-            voltage == "0,4 кВ и ниже" and
-            reliability_category == "III" and
-            distance == "менее 200" and
-            category in ["до 15 кВт", "от 15 до 150 кВт"]
+            values["applicant_type"] in ["Юридическое лицо", "Индивидуальный предприниматель"] and
+            values["location"] in ["Город", "Поселок городского типа"] and
+            values["voltage"] == "0,4 кВ и ниже" and
+            values["reliability_category"] == "III" and
+            values["distance"] == "менее 200" and
+            values["category_result"] in ["до 15 кВт", "от 15 до 150 кВт"]
         )
         condition_4 = (
-            applicant_type in ["Юридическое лицо", "Индивидуальный предприниматель"] and
-            location == "Сельская местность" and
-            voltage == "0,4 кВ и ниже" and
-            reliability_category == "III" and
-            distance == "менее 300" and
-            category in ["до 15 кВт", "от 15 до 150 кВт"]
+            values["applicant_type"] in ["Юридическое лицо", "Индивидуальный предприниматель"] and
+            values["location"] == "Сельская местность" and
+            values["voltage"] == "0,4 кВ и ниже" and
+            values["reliability_category"] == "III" and
+            values["distance"] == "менее 300" and
+            values["category_result"] in ["до 15 кВт", "от 15 до 150 кВт"]
         )
         general_condition_1 = not (condition_1 or condition_2)
         general_condition_2 = not (condition_3 or condition_4)
@@ -219,8 +227,10 @@ def update_benefit_text(form_values, label=None):
         else:
             result_text = "Данные не полные или не соответствуют условиям"
             bg_color = "SystemButtonFace"
+
     if label:
         label.config(text=result_text, background=bg_color)
+
 
 # ==== Таблица льготная ставка 1 кВт ====
 def create_benefit_table(parent, form_values_connection):
@@ -289,25 +299,46 @@ def number_to_words_rub_kop(value_str):
     return f"{rub_text} {rub_word} {kop_text} {kop_word}"
 
 # ==== Таблица для расчета итоговой стоимости и сравнения ставок ====
-def create_result_table(parent):
+TABLE_HEADERS = [
+    "Ставка",
+    "Стоимость без НДС, руб",
+    "Сумма НДС, руб",
+    "Стоимость с НДС, руб"
+]
+
+BLOCKS_DATA = {
+    1: "Стоимость мероприятий по ТП,\n"
+       "рассчитанная с применением\n"
+       "льготной ставки за 1 кВт",
+    3: "Стоимость мероприятий по ТП,\n"
+       "рассчитанная с применением\n"
+       "стандартизированных\nтарифных ставок"
+}
+
+PLACEHOLDER_TEXT = "Значение рассчитывается автоматически"
+
+
+def create_result_table(parent, placeholder):
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
+
     title = tk.Label(section, text='Расчет по льготной ставке за 1 кВт и СТС',
                      font=("Arial", 12, "bold"), anchor="center")
     title.pack(anchor='center')
+
     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
     frame.pack(anchor="w", padx=10, pady=5)
+
     font_style_header = ("Arial", 12, "bold")
     font_style_cells = ("Arial", 12)
-    headers = ["Ставка", "Стоимость без НДС, руб", "Сумма НДС, руб", "Стоимость с НДС, руб"]
-    big_cells_texts = [
-        "Стоимость мероприятий по ТП,\nрассчитанная с применением\nльготной ставки за 1 кВт",
-        "Стоимость мероприятий по ТП,\nрассчитанная с применением\nстандартизированных\nтарифных ставок"
-    ]
-    for col, header in enumerate(headers):
+
+    # Заголовки таблицы
+    for col, header in enumerate(TABLE_HEADERS):
         lbl = tk.Label(frame, text=header, font=font_style_header,
                        borderwidth=1, relief="solid", width=25, anchor="center")
         lbl.grid(row=0, column=col, padx=5, pady=5, ipady=2, sticky="nsew")
+
+    # Валидация и перевод в слова
     def validate_and_copy_words(event, linked_var):
         entry = event.widget
         text = entry.get().replace(',', '.')
@@ -323,39 +354,60 @@ def create_result_table(parent):
             entry.delete(0, tk.END)
             linked_var.set("")
 
-    def copy_to_clipboard(text_var):
+    # Копирование в буфер
+    def copy_to_clipboard(text):
         parent.clipboard_clear()
-        parent.clipboard_append(text_var.get())
+        parent.clipboard_append(text)
 
+    # Создание блока строк
     def create_big_cell_block(start_row, text):
         lbl = tk.Label(frame, text=text, font=font_style_cells, borderwidth=1,
-                    relief="solid", anchor="w", justify="left", width=25)
+                       relief="solid", anchor="w", justify="left", width=25)
         lbl.grid(row=start_row, column=0, rowspan=2, padx=5, pady=5, ipady=10, sticky="nsew")
 
         for col in range(1, 4):
             display_var = tk.StringVar()
-            entry = tk.Entry(frame, font=font_style_cells, borderwidth=1,
-                            relief="solid", width=35, justify='center')
-            entry.grid(row=start_row, column=col, padx=5, pady=5, ipady=15, sticky="nsew")
+
+            # Первая строка: Entry + кнопка копирования
+            entry_container = tk.Frame(frame)
+            entry_container.grid(row=start_row, column=col, padx=5, pady=5, sticky="nsew")
+
+            entry = tk.Entry(entry_container, font=font_style_cells, borderwidth=1,
+                             relief="solid", width=30, justify='center')
+            entry.insert(0, placeholder)  # Заглушка
+            entry.pack(side="left", fill="x", expand=True)
             entry.bind("<FocusOut>", lambda e, var=display_var: validate_and_copy_words(e, var))
-            container = tk.Frame(frame)
-            container.grid(row=start_row + 1, column=col, padx=5, pady=(0,0), sticky="nsew")
-            display = tk.Text(container, font=font_style_cells, borderwidth=1,
-                            relief="solid", width=35, height=2, wrap="word")
-            display.pack(side="left", fill="both", expand=True, padx=(0,5))
+
+            btn_copy_entry = tk.Button(entry_container, text="❐", font=("Arial", 12),
+                                       command=lambda e=entry: copy_to_clipboard(e.get()))
+            btn_copy_entry.pack(side="left", padx=(5, 0), ipady=5)
+
+            # Вторая строка: Text + кнопка копирования
+            text_container = tk.Frame(frame)
+            text_container.grid(row=start_row + 1, column=col, padx=5, pady=(0, 0), sticky="nsew")
+
+            display = tk.Text(text_container, font=font_style_cells, borderwidth=1,
+                              relief="solid", width=30, height=2, wrap="word")
+            display.pack(side="left", fill="both", expand=True)
             display.insert("1.0", display_var.get())
             display.config(state="disabled")
+
             def update_text(*args, disp=display, var=display_var):
                 disp.config(state="normal")
                 disp.delete("1.0", tk.END)
                 disp.insert("1.0", var.get())
                 disp.config(state="disabled")
+
             display_var.trace_add("write", update_text)
-            btn_copy = tk.Button(container, text="❐", font=("Arial", 12),
-                                command=lambda var=display_var: copy_to_clipboard(var))
-            btn_copy.pack(side="left", ipady=15)
-    create_big_cell_block(1, big_cells_texts[0])
-    create_big_cell_block(3, big_cells_texts[1])
+
+            btn_copy_text = tk.Button(text_container, text="❐", font=("Arial", 12),
+                                      command=lambda var=display_var: copy_to_clipboard(var.get()))
+            btn_copy_text.pack(side="left", padx=(5, 0), ipady=5)
+
+    # Генерация блоков через цикл
+    for row, description in BLOCKS_DATA.items():
+        create_big_cell_block(row, description)
+
     return frame
 
 def setup_interface(root):
@@ -385,7 +437,10 @@ def setup_interface(root):
         value_connection_parameters,
         is_connection_section=True
     )
-    benefit_label = create_benefit_table(scrollable.scrollable_frame, value_connection_parameters)
+    benefit_label = create_benefit_table(
+        scrollable.scrollable_frame,
+        value_connection_parameters
+    )
     def unified_update(event=None):
         update_distance_options(value_connection_parameters)
         update_benefit_text(value_connection_parameters, benefit_label)
@@ -396,7 +451,14 @@ def setup_interface(root):
     value_connection_parameters["distance"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
     value_connection_parameters["category_result"].bind("<FocusOut>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
 
-    create_result_table(scrollable.scrollable_frame)
+
+
+
+    current_text = benefit_label.cget("text")
+    print(current_text)
+
+    create_result_table(scrollable.scrollable_frame, current_text)
+
     return benefit_label
 
 def main():
