@@ -166,7 +166,6 @@ def extract_form_values(form_values):
         values[key] = get_value(widget)
     return values
 
-
 def update_benefit_text(form_values, label=None):
     keys = [
         "applicant_type",
@@ -273,32 +272,8 @@ def bind_update_benefit_label(form_values, label):
 def create_dynamic_table_with_headers(parent, data_rate_config, data_rate_all_dict):
     pass
 
-def number_to_words_rub_kop(value_str):
-    try:
-        value_str = replace_comma_with_dot(value_str)
-        value = float(value_str)
-    except ValueError:
-        return ""
-    rub = int(value)
-    kop = int(round((value - rub) * 100))
-
-    rub_text = num2words(rub, lang='ru')
-    kop_text = num2words(kop, lang='ru')
-    if rub % 10 == 1 and rub % 100 != 11:
-        rub_word = "рубль"
-    elif 2 <= rub % 10 <= 4 and (rub % 100 < 10 or rub % 100 >= 20):
-        rub_word = "рубля"
-    else:
-        rub_word = "рублей"
-    if kop % 10 == 1 and kop % 100 != 11:
-        kop_word = "копейка"
-    elif 2 <= kop % 10 <= 4 and (kop % 100 < 10 or kop % 100 >= 20):
-        kop_word = "копейки"
-    else:
-        kop_word = "копеек"
-    return f"{rub_text} {rub_word} {kop_text} {kop_word}"
-
 # ==== Таблица для расчета итоговой стоимости и сравнения ставок ====
+
 TABLE_HEADERS = [
     "Ставка",
     "Стоимость без НДС, руб",
@@ -307,115 +282,120 @@ TABLE_HEADERS = [
 ]
 
 BLOCKS_DATA = {
-    1: "Стоимость мероприятий по ТП,\n"
-       "рассчитанная с применением\n"
-       "льготной ставки за 1 кВт",
-    3: "Стоимость мероприятий по ТП,\n"
-       "рассчитанная с применением\n"
-       "стандартизированных\nтарифных ставок"
+    "power_rate": "Стоимость мероприятий по ТП,\n"
+                  "рассчитанная с применением\n"
+                  "льготной ставки за 1 кВт",
+    "standard_rate": "Стоимость мероприятий по ТП,\n"
+                     "рассчитанная с применением\n"
+                     "стандартизированных\nтарифных ставок"
 }
 
-PLACEHOLDER_TEXT = "Значение рассчитывается автоматически"
 
-
-def create_result_table(parent, benefit_label):
+def create_result_table(parent, title_text, blocks_count=1):
     section = tk.Frame(parent)
     section.pack(anchor='w', padx=10, pady=5)
-
-    title = tk.Label(section, text='Расчет по льготной ставке за 1 кВт и СТС',
-                     font=("Arial", 12, "bold"), anchor="center")
+    title = tk.Label(section, text=title_text, font=("Arial", 12, "bold"), anchor="center")
     title.pack(anchor='center')
-
     frame = tk.Frame(section, padx=10, pady=10, relief="ridge", bd=5)
     frame.pack(anchor="w", padx=10, pady=5)
+    font_style = ("Arial", 12)
 
-    font_style_header = ("Arial", 12, "bold")
-    font_style_cells = ("Arial", 12)
+    for col_index, header in enumerate(TABLE_HEADERS):
+        label = tk.Label(
+            frame,
+            text=header,
+            font=font_style,
+            borderwidth=1,
+            relief="solid",
+            padx=5,
+            pady=3,
+            width=35,
+            anchor='center'
+        )
+        label.grid(row=0, column=col_index, padx=5, pady=5, sticky='w')
 
-    for col, header in enumerate(TABLE_HEADERS):
-        lbl = tk.Label(frame, text=header, font=font_style_header,
-                       borderwidth=1, relief="solid", width=25, anchor="center")
-        lbl.grid(row=0, column=col, padx=5, pady=5, ipady=2, sticky="nsew")
-
-    def validate_and_copy_words(event, linked_var):
-        entry = event.widget
-        text = entry.get().replace(',', '.')
+    def is_number(s):
         try:
-            value = float(text)
-            if not (0.0 <= value <= 1000000000.0):
-                raise ValueError("Out of range")
-            formatted = f"{value:.2f}".replace('.', ',')
-            entry.delete(0, tk.END)
-            entry.insert(0, formatted)
-            linked_var.set(number_to_words_rub_kop(formatted))
-        except ValueError:
-            entry.delete(0, tk.END)
-            linked_var.set("")
+            float(s.replace(',', '.'))
+            return True
+        except Exception:
+            return False
 
-    def copy_to_clipboard(text):
-        parent.clipboard_clear()
-        parent.clipboard_append(text)
+    def number_to_words(value):
+        if not value:
+            return ""
+        if num2words:
+            try:
+                return num2words(int(float(value.replace(',', '.'))), lang='ru')
+            except Exception:
+                return ""
+        return str(value)
 
-    # Сохраняем ссылку на Entry блока с row == 1, чтобы обновлять его потом
-    entry_for_benefit = None
+    def compute_first_row_values(block_key):
+        row_values = {}
+        if block_key == "power_rate":
+            cost_with_vat = 1200.00  # заглушка
+            cost_without_vat = round(cost_with_vat / 1.2, 2)
+            vat_sum = round(cost_with_vat - cost_without_vat, 2)
 
-    def create_big_cell_block(start_row, text):
-        nonlocal entry_for_benefit
+            row_values[1] = f"{cost_without_vat:.2f}".replace('.', ',')
+            row_values[2] = f"{vat_sum:.2f}".replace('.', ',')
+            row_values[3] = f"{cost_with_vat:.2f}".replace('.', ',')
+        elif block_key == "standard_rate":
+            # Заглушки для каждой колонки
+            row_values[1] = "ыав"
+            row_values[2] = "111,11"
+            row_values[3] = "1111,10"
+        else:
+            row_values[1] = "0,00"
+            row_values[2] = "0,00"
+            row_values[3] = "0,00"
+        return row_values
 
-        lbl = tk.Label(frame, text=text, font=font_style_cells, borderwidth=1,
-                       relief="solid", anchor="w", justify="left", width=25)
-        lbl.grid(row=start_row, column=0, rowspan=2, padx=5, pady=5, ipady=10, sticky="nsew")
+    def create_block(row_start, block_key):
+        label_rate = tk.Label(
+            frame,
+            text=BLOCKS_DATA.get(block_key, ""),
+            font=font_style,
+            borderwidth=1,
+            relief="solid",
+            padx=5,
+            pady=3,
+            anchor='w',
+            justify='left'
+        )
+        label_rate.grid(row=row_start, column=0, rowspan=2, sticky='nsew')
 
-        for col in range(1, 4):
-            display_var = tk.StringVar()
+        row_values = compute_first_row_values(block_key)
 
-            entry_container = tk.Frame(frame)
-            entry_container.grid(row=start_row, column=col, padx=5, pady=5, sticky="nsew")
+        # Первая строка — расчётные значения
+        for col in range(1, len(TABLE_HEADERS)):
+            text = row_values.get(col, "")
+            label = tk.Label(frame, text=text, font=font_style, borderwidth=1, relief="solid", padx=5, pady=3,
+                             anchor='e')
+            label.grid(row=row_start, column=col, sticky='nsew')
 
-            entry = tk.Entry(entry_container, font=font_style_cells, borderwidth=1,
-                             relief="solid", width=30, justify='center')
-
-            # Если это первая строка блока 1, вставляем текст benefit_label
-            if start_row == 1:
-                initial_text = benefit_label.cget("text")
-                entry.insert(0, initial_text)
-                entry_for_benefit = entry  # сохраняем ссылку
+        # Вторая строка — пропись чисел, если в первой строке число, иначе пусто
+        for col in range(1, len(TABLE_HEADERS)):
+            first_row_text = row_values.get(col, "")
+            if is_number(first_row_text):
+                words = number_to_words(first_row_text)
             else:
-                entry.insert(0, "")  # или пустая заглушка
+                words = ""
+            label = tk.Label(frame, text=words, font=font_style, borderwidth=1, relief="solid", padx=5, pady=3,
+                             anchor='w')
+            label.grid(row=row_start + 1, column=col, sticky='nsew')
 
-            entry.pack(side="left", fill="x", expand=True)
-            entry.bind("<FocusOut>", lambda e, var=display_var: validate_and_copy_words(e, var))
+    for i, block_key in enumerate(BLOCKS_DATA.keys()):
+        create_block(row_start=1 + i * 2, block_key=block_key)
 
-            btn_copy_entry = tk.Button(entry_container, text="❐", font=("Arial", 12),
-                                       command=lambda e=entry: copy_to_clipboard(e.get()))
-            btn_copy_entry.pack(side="left", padx=(5, 0), ipady=5)
 
-            text_container = tk.Frame(frame)
-            text_container.grid(row=start_row + 1, column=col, padx=5, pady=(0, 0), sticky="nsew")
 
-            display = tk.Text(text_container, font=font_style_cells, borderwidth=1,
-                              relief="solid", width=30, height=2, wrap="word")
-            display.pack(side="left", fill="both", expand=True)
-            display.insert("1.0", display_var.get())
-            display.config(state="disabled")
 
-            def update_text(*args, disp=display, var=display_var):
-                disp.config(state="normal")
-                disp.delete("1.0", tk.END)
-                disp.insert("1.0", var.get())
-                disp.config(state="disabled")
 
-            display_var.trace_add("write", update_text)
 
-            btn_copy_text = tk.Button(text_container, text="❐", font=("Arial", 12),
-                                      command=lambda var=display_var: copy_to_clipboard(var.get()))
-            btn_copy_text.pack(side="left", padx=(5, 0), ipady=5)
 
-    for row, description in BLOCKS_DATA.items():
-        create_big_cell_block(row, description)
 
-    # Возвращаем frame и ссылку на Entry с benefit_label для обновления извне
-    return frame, entry_for_benefit
 
 def setup_interface(root):
     tk.Label(
@@ -445,17 +425,12 @@ def setup_interface(root):
         is_connection_section=True
     )
     benefit_label = create_benefit_table(scrollable.scrollable_frame, value_connection_parameters)
-    frame, entry_for_benefit = create_result_table(scrollable.scrollable_frame, benefit_label)
-
-    def on_benefit_label_change(*args):
-        new_text = benefit_label.cget("text")
-        if entry_for_benefit:
-            entry_for_benefit.delete(0, tk.END)
-            entry_for_benefit.insert(0, new_text)
 
     def unified_update(event=None):
         update_distance_options(value_connection_parameters)
         update_benefit_text(value_connection_parameters, benefit_label)
+
+       
     value_connection_parameters["applicant_type"].bind("<<ComboboxSelected>>", unified_update)
     value_connection_parameters["location"].bind("<<ComboboxSelected>>", unified_update)
     value_connection_parameters["voltage"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
@@ -463,13 +438,19 @@ def setup_interface(root):
     value_connection_parameters["distance"].bind("<<ComboboxSelected>>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
     value_connection_parameters["category_result"].bind("<FocusOut>", lambda e: update_benefit_text(value_connection_parameters, benefit_label))
 
+    create_result_table(
+        scrollable.scrollable_frame,
+        "Расчет по льготной ставке за 1 кВт и СТС",
+        blocks_count=1
+    )
 
 
 
-    current_text = benefit_label.cget("text")
-    print(current_text)
 
-    # create_result_table(scrollable.scrollable_frame, benefit_label)
+
+
+
+
 
     return benefit_label
 
